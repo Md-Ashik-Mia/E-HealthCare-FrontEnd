@@ -49,7 +49,7 @@ export default function PatientAppointmentsPage() {
     // Helper to get doctor name
     const getDoctorName = (id: string) => {
         if (!doctors) return 'Unknown Doctor';
-        const doctor = doctors.find((d: any) => (d._id || d.id) === id);
+        const doctor = doctors.find((d: any) => (d._id || d.id) === id); // eslint-disable-line @typescript-eslint/no-explicit-any
         return doctor ? doctor.name : 'Unknown Doctor';
     };
 
@@ -91,7 +91,7 @@ export default function PatientAppointmentsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {appointments.map((apt: any) => (
+                                {appointments.map((apt: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                                     <tr key={apt._id} className="hover:bg-gray-50 transition-colors">
                                         <td className="py-4 pl-4">
                                             <div className="flex items-center gap-3">

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers/Providers";
+import { CallProvider } from "@/context/CallContext";
+import CallWindow from "@/components/CallWindow";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +30,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <CallProvider>
+
+          {children}
+          <CallWindow /> {/* Floating window always available */}
+          </CallProvider>
+          
+          </Providers>
       </body>
     </html>
   );

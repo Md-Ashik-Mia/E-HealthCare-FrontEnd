@@ -18,6 +18,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
         { href: '/dashboard/patient/find-doctor', label: 'Find Doctor', icon: '🔍' },
         { href: '/dashboard/patient/appointments', label: 'Appointments', icon: '📅' },
         { href: '/dashboard/patient/history', label: 'Medical History', icon: '📋' },
+        { href: '/dashboard/patient/chats', label: 'Chats', icon: '💬' },
         { href: '/dashboard/patient/profile', label: 'Profile', icon: '👤' },
     ];
 
@@ -26,6 +27,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
         { href: '/dashboard/doctor/appointments', label: 'Appointments', icon: '📅' },
         { href: '/dashboard/doctor/patients', label: 'My Patients', icon: '👥' },
         { href: '/dashboard/doctor/schedule', label: 'Schedule', icon: '🗓️' },
+        { href: '/dashboard/doctor/chats', label: 'Chats', icon: '💬' },
     ];
 
     const adminLinks: SidebarLink[] = [
@@ -52,8 +54,8 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
                                 <Link
                                     href={link.href}
                                     className={`flex items-center gap-3 rounded px-4 py-2 transition-colors ${isActive
-                                            ? 'bg-blue-600 text-white'
-                                            : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                                         }`}
                                 >
                                     {link.icon && <span>{link.icon}</span>}

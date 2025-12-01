@@ -24,6 +24,7 @@ export default function DoctorProfilePage() {
 
     useEffect(() => {
         if (profile) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setFormData({
                 bio: profile.bio || '',
                 consultationFee: profile.consultationFee || 0,
@@ -40,7 +41,7 @@ export default function DoctorProfilePage() {
             queryClient.invalidateQueries({ queryKey: ['doctorProfile'] });
             toast.success('Profile updated successfully');
         },
-        onError: (error: any) => {
+        onError: (error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             toast.error('Failed to update profile: ' + (error.response?.data?.message || error.message));
         }
     });

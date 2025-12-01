@@ -14,7 +14,7 @@ export default function DoctorAppointmentsPage() {
         queryFn: getDoctorAppointments,
     });
 
-    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    const [selectedAppointment, setSelectedAppointment] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
 
     const confirmMutation = useMutation({
         mutationFn: confirmAppointment,
@@ -22,7 +22,7 @@ export default function DoctorAppointmentsPage() {
             queryClient.invalidateQueries({ queryKey: ['doctorAppointments'] });
             toast.success('Appointment confirmed successfully');
         },
-        onError: (error: any) => {
+        onError: (error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             toast.error('Failed to confirm: ' + (error.response?.data?.message || error.message));
         }
     });
@@ -33,7 +33,7 @@ export default function DoctorAppointmentsPage() {
             queryClient.invalidateQueries({ queryKey: ['doctorAppointments'] });
             toast.success('Appointment marked as completed');
         },
-        onError: (error: any) => {
+        onError: (error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             toast.error('Failed to complete: ' + (error.response?.data?.message || error.message));
         }
     });
@@ -75,7 +75,7 @@ export default function DoctorAppointmentsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {appointments.map((apt: any) => (
+                                {appointments.map((apt: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                                     <tr key={apt._id} className="hover:bg-gray-50 transition-colors">
                                         <td className="py-4 pl-4">
                                             <div className="flex items-center gap-3">
@@ -152,7 +152,7 @@ export default function DoctorAppointmentsPage() {
                     <div className="py-12 text-center">
                         <div className="mb-4 text-6xl">📅</div>
                         <h3 className="mb-2 text-xl font-semibold text-gray-900">No appointments found</h3>
-                        <p className="text-gray-600">You don't have any scheduled appointments yet.</p>
+                        <p className="text-gray-600">You don&apos;t have any scheduled appointments yet.</p>
                     </div>
                 )}
             </Card>

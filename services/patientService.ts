@@ -44,3 +44,19 @@ export const getDoctorSchedule = async (doctorId: string) => {
   const response = await patientApi.get(`/appointments/doctor/${doctorId}`);
   return response.data;
 };
+
+export const updateProfile = async (data: {
+  age?: string;
+  bloodGroup?: string;
+  gender?: string;
+  phone?: string;
+  address?: string;
+  emergencyContact?: {
+    name?: string;
+    relation?: string;
+    phone?: string;
+  };
+}) => {
+  const response = await patientApi.post('/patient/profile', data);
+  return response.data;
+};

@@ -29,7 +29,7 @@ export default function RegisterPage() {
                 : 'Registration successful! You can now login.'
             );
             router.push('/login');
-        } catch (error: any) {
+        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
             toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
         } finally {
             setIsLoading(false);

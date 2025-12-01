@@ -1,6 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "NEXT_PUBLIC_API_URL";
+const BASE_URL = "http://localhost:5000";
+console.log("API BASE_URL:", BASE_URL);
 
 /**
  * Attach Authorization header from localStorage.
@@ -12,10 +13,7 @@ function attachAuth(
     if (typeof window !== "undefined") {
         const token = localStorage.getItem("access_token");
         if (token) {
-            config.headers = {
-                ...config.headers,
-                Authorization: `Bearer ${token}`,
-            };
+            config.headers.Authorization = `Bearer ${token}`;
         }
     }
     return config;

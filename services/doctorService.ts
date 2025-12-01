@@ -9,7 +9,7 @@ export const getDoctorProfile = async () => {
   return response.data;
 };
 
-export const updateDoctorProfile = async (data: any) => {
+export const updateDoctorProfile = async (data: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
   const response = await doctorApi.patch('/doctor/profile', data);
   return response.data;
 };

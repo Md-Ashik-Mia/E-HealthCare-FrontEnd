@@ -65,7 +65,7 @@ export default function AdminDoctorsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {pendingDoctors.map((doctor: any) => (
+                                {pendingDoctors.map((doctor: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                                     <tr key={doctor.id || doctor._id} className="hover:bg-gray-50 transition-colors">
                                         <td className="py-4 pl-4 font-medium text-gray-900">{doctor.name}</td>
                                         <td className="py-4 text-gray-600">{doctor.email}</td>

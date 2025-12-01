@@ -29,7 +29,7 @@ export default function DoctorSchedulePage() {
             setIsAdding(false);
             toast.success('Schedule created successfully');
         },
-        onError: (error: any) => {
+        onError: (error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             toast.error('Failed to create schedule: ' + (error.response?.data?.message || error.message));
         }
     });
@@ -138,7 +138,7 @@ export default function DoctorSchedulePage() {
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {schedules && schedules.length > 0 ? (
-                    schedules.map((item: any) => (
+                    schedules.map((item: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                         <Card key={item._id || item.id} className="relative">
                             <button
                                 onClick={() => {

@@ -12,18 +12,32 @@ export default function FindDoctorPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSpecialty, setSelectedSpecialty] = useState('all');
 
-    const { data: doctors, isLoading } = useQuery({
+    const { data: doctors, isLoading, error } = useQuery({
         queryKey: ['approvedDoctors'],
-        queryFn: getApprovedDoctors,
+        queryFn: async () => {
+            try {
+                console.log('Fetching approved doctors...');
+                const data = await getApprovedDoctors();
+                console.log('Fetched doctors data:', data);
+                return data;
+            } catch (err) {
+                console.error('Error fetching doctors:', err);
+                throw err;
+            }
+        },
     });
 
+    if (error) {
+        console.error('Query error:', error);
+    }
+
     // Extract unique specialties
-    const specialties = doctors
-        ? ['all', ...new Set(doctors.map((doc: any) => doc.speciality || doc.specialty))]
+    const specialties: string[] = doctors
+        ? ['all', ...new Set(doctors.map((doc: any) => doc.speciality || doc.specialty).filter(Boolean))] as string[] // eslint-disable-line @typescript-eslint/no-explicit-any
         : ['all'];
 
     // Filter doctors based on search and specialty
-    const filteredDoctors = doctors?.filter((doctor: any) => {
+    const filteredDoctors = doctors?.filter((doctor: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
         const matchesSearch = doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (doctor.speciality || doctor.specialty || '').toLowerCase().includes(searchTerm.toLowerCase());
         const matchesSpecialty = selectedSpecialty === 'all' ||
@@ -86,7 +100,7 @@ export default function FindDoctorPage() {
 
             {/* Doctor Cards Grid */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredDoctors?.map((doctor: any, index: number) => (
+                {filteredDoctors?.map((doctor: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                     <Card
                         key={doctor._id || doctor.id}
                         className="group transform transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"

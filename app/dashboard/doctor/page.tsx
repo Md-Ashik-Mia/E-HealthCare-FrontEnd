@@ -91,7 +91,7 @@ export default function DoctorDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {appointments.map((apt: any) => (
+                                    {appointments.map((apt: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                                         <tr key={apt.id}>
                                             <td className="py-4">
                                                 <p className="font-medium">{apt.patient}</p>

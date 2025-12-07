@@ -101,7 +101,7 @@ export default function PatientPrescriptionsPage() {
                                 {/* Notes */}
                                 {prescription.notes && (
                                     <div>
-                                        <h4 className="font-semibold text-gray-900">Doctor's Notes</h4>
+                                        <h4 className="font-semibold text-gray-900">Doctor&apos;s Notes</h4>
                                         <p className="mt-1 text-gray-700">{prescription.notes}</p>
                                     </div>
                                 )}

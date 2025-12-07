@@ -38,6 +38,7 @@ export default function ChatWindow({
     if (!conversationId || !socket) return;
 
     // Clear previous messages and errors immediately when switching conversations
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     setMessages([]);
     setError(null);
     setLoading(true);

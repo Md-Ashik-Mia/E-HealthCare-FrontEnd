@@ -63,7 +63,7 @@ export default function DoctorPrescriptionsPage() {
             setMedications([{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
             setDiagnosis('');
             setNotes('');
-        } catch (error) {
+        } catch {
             toast.error('Failed to create prescription');
         } finally {
             setIsSubmitting(false);
@@ -284,7 +284,7 @@ export default function DoctorPrescriptionsPage() {
                     <div className="py-12 text-center">
                         <div className="mb-4 text-6xl">📅</div>
                         <h3 className="mb-2 text-xl font-semibold text-gray-900">No Appointments</h3>
-                        <p className="text-gray-600">You don't have any appointments yet.</p>
+                        <p className="text-gray-600">You don&apos;t have any appointments yet.</p>
                     </div>
                 )}
             </Card>

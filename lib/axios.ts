@@ -1,6 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "https://e-healthcare-backend.onrender.com";
 console.log("API BASE_URL:", BASE_URL);
 
 /**

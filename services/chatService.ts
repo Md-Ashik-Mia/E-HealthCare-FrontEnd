@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { BASE_URL } from '../lib/axios';
 
-const API_URL = 'http://localhost:5000/chat';
+const API_URL = `${BASE_URL}/chat`;
 
 // Helper to get token
 const getAuthHeader = () => {

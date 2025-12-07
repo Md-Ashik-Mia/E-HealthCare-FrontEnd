@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { socket } from "@/lib/socket";
 import { patientApi, doctorApi } from "@/lib/axios";
 import { useSocket } from "@/context/SocketContext";
+import { useCall } from "@/context/CallContext";
 import clsx from "clsx";
 
 interface Msg {
   _id: string;
+  conversationId: string;
   senderId: string;
   message: string;
   isAI?: boolean;
@@ -26,88 +27,208 @@ export default function ChatWindow({
   const [input, setInput] = useState("");
   const api = role === "doctor" ? doctorApi : patientApi;
   const bottomRef = useRef<HTMLDivElement>(null);
-  const { userId } = useSocket(); // Get real user ID from context
+  const { userId, onlineUsers, socket } = useSocket();
+  const { openCall } = useCall();
+
+  const isUserOnline = onlineUsers.includes(user._id);
 
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !socket) return;
 
+    console.log("📡 Fetching messages for conversation:", conversationId);
     api.get(`/chat/${conversationId}/messages`).then((res) => {
+      console.log("📥 Loaded messages:", res.data.length);
       setMessages(res.data);
+    }).catch(err => {
+      console.error("❌ Error loading messages:", err);
     });
 
-    socket.on("message:receive", (msg) => {
+    const handleMessageReceive = (msg: Msg) => {
+      console.log("📨 Message received via socket:", msg);
+
       if (msg.conversationId === conversationId) {
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => {
+          // 1. Check if we already have this EXACT message ID (server confirmation)
+          if (prev.some(m => m._id === msg._id)) {
+            return prev;
+          }
+
+          // 2. If this is my own message (senderId matches), replace the optimistic one
+          if (msg.senderId === userId) {
+            // Find the optimistic message (we can assume it's the last one or match by content)
+            // A simple heuristic: find the last message by this user that has a temporary-looking ID (long string)
+            // OR simply replace the last message if it matches content.
+
+            const optimisticIndex = prev.findIndex(m =>
+              m.senderId === userId &&
+              m.message === msg.message &&
+              m._id.length > 24 // MongoDB IDs are 24 hex chars, UUIDs are 36 chars
+            );
+
+            if (optimisticIndex !== -1) {
+              console.log("🔄 Replacing optimistic message with confirmed one");
+              const newMessages = [...prev];
+              newMessages[optimisticIndex] = msg;
+              return newMessages;
+            }
+          }
+
+          return [...prev, msg];
+        });
+        console.log("✅ Message added to UI");
       }
-    });
+    };
+
+    socket.on("message:receive", handleMessageReceive);
 
     return () => {
-      socket.off("message:receive");
+      socket.off("message:receive", handleMessageReceive);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
+  }, [conversationId, socket, api, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   function send() {
-    if (!input.trim() || !userId) return;
+    if (!input.trim() || !userId || !socket) {
+      console.log("⚠️ Cannot send: empty message, no userId, or no socket");
+      return;
+    }
 
     const payload = {
       conversationId,
-      from: userId, // Use real user ID from context
+      from: userId,
       to: user._id,
       message: input,
     };
 
+    console.log("📤 Sending message:", payload);
+    console.log("🔌 Socket Status:", {
+      connected: socket.connected,
+      id: socket.id,
+      disconnected: socket.disconnected
+    });
+
+    if (!socket.connected) {
+      console.error("❌ Socket is NOT connected! Message might not send.");
+      // Try to reconnect?
+      socket.connect();
+    }
+
+    // Optimistic update: Add message to UI immediately
+    const optimisticMsg: Msg = {
+      _id: crypto.randomUUID(), // Temporary ID
+      conversationId,
+      senderId: userId,
+      message: input,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
     socket.emit("message:send", payload);
-
-    setMessages((m) => [
-      ...m,
-      {
-        _id: crypto.randomUUID(),
-        senderId: userId, // Use real user ID from context
-        message: input,
-      },
-    ]);
-
     setInput("");
   }
 
+  function startAudioCall() {
+    openCall(user._id);
+  }
+
+  function startVideoCall() {
+    openCall(user._id);
+  }
+
   return (
-    <div className="flex flex-col h-full w-full bg-black">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((m) => (
-          <div
-            key={m._id}
-            className={clsx(
-              "max-w-sm p-3 rounded-lg",
-              m.senderId === userId // Use real user ID from context
-                ? "bg-blue-500 text-white self-end"
-                : m.isAI
-                  ? "bg-purple-500 text-red self-start"
-                  : "bg-black-200 text-white-800 self-start"
+    <div className="flex flex-col h-full w-full bg-white">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b bg-white">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-lg">
+              {user.role === 'doctor' ? '👨‍⚕️' : '👤'}
+            </div>
+            {isUserOnline && (
+              <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-white"></div>
             )}
-          >
-            {m.message}
           </div>
-        ))}
+          <div>
+            <p className="font-semibold text-gray-900">{user.name}</p>
+            <p className="text-xs text-gray-500">
+              {isUserOnline ? "Online" : "Offline"}
+            </p>
+          </div>
+        </div>
+
+        {/* Call Buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={startAudioCall}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            title="Audio Call"
+          >
+            <span className="text-xl">🎤</span>
+          </button>
+          <button
+            onClick={startVideoCall}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            title="Video Call"
+          >
+            <span className="text-xl">📹</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+            <p className="text-lg">No messages yet</p>
+            <p className="text-sm mt-2">Start the conversation by sending a message below</p>
+            <p className="text-xs mt-4 text-gray-400">Debug: userId={userId || 'undefined'}</p>
+          </div>
+        ) : (
+          messages.map((m) => (
+            <div
+              key={m._id}
+              className={clsx(
+                "flex",
+                m.senderId === userId ? "justify-end" : "justify-start"
+              )}
+            >
+              <div
+                className={clsx(
+                  "max-w-sm p-3 rounded-lg",
+                  m.senderId === userId
+                    ? "bg-blue-600 text-white"
+                    : m.isAI
+                      ? "bg-purple-100 text-purple-900 border border-purple-300"
+                      : "bg-white text-gray-900 border border-gray-200"
+                )}
+              >
+                {m.isAI && (
+                  <p className="text-xs text-purple-600 mb-1">🤖 AI Reply</p>
+                )}
+                <p className="whitespace-pre-wrap break-words">{m.message}</p>
+              </div>
+            </div>
+          ))
+        )}
 
         <div ref={bottomRef}></div>
       </div>
 
-      <div className="p-4 border-t flex space-x-2">
+      {/* Input */}
+      <div className="p-4 border-t bg-white flex space-x-2">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={(e) => e.key === "Enter" && send()}
-          className="flex-1 px-3 py-2 border rounded"
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
           placeholder="Type a message..."
         />
         <button
           onClick={send}
-          className="bg-blue-600 text-white px-4 rounded"
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
         >
           Send
         </button>

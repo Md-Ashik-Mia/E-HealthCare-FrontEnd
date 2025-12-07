@@ -33,34 +33,65 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
         const token = localStorage.getItem("access_token");
 
         // Get user ID from session
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sessionUserId = (session?.user as any)?.id;
 
-        if (token && sessionUserId) {
-            setUserId(sessionUserId);
+        console.log("🔍 SocketContext: Checking connection requirements", {
+            hasToken: !!token,
+            hasUserId: !!sessionUserId,
+            userId: sessionUserId,
+            currentSocketId: socket?.id
+        });
 
-            const newSocket = io("http://localhost:6000", {
-                auth: { token },
-                transports: ["websocket"],
-                reconnection: true,
-            });
-
-            newSocket.on("connect", () => {
-                console.log("Socket connected:", newSocket.id);
-                // Emit user online status with actual user ID
-                newSocket.emit("user:online", sessionUserId);
-            });
-
-            newSocket.on("disconnect", () => {
-                console.log("Socket disconnected");
-            });
-
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setSocket(newSocket);
-
-            return () => {
-                newSocket.close();
-            };
+        if (!token || !sessionUserId) {
+            console.log("⚠️ Cannot create socket: missing token or userId");
+            return;
         }
+
+        // If we already have a socket and the user ID hasn't changed, don't reconnect
+        if (socket && userId === sessionUserId) {
+            return;
+        }
+
+        // Close existing socket if any
+        if (socket) {
+            console.log("♻️ Closing existing socket before reconnecting");
+            socket.close();
+        }
+
+        console.log("🔌 Creating new socket connection to http://127.0.0.1:3001");
+        const newSocket = io("http://127.0.0.1:3001", {
+            auth: { token },
+            transports: ["websocket"],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+        });
+
+        newSocket.on("connect", () => {
+            console.log("✅ Socket connected:", newSocket.id);
+            // Emit user online status with actual user ID
+            newSocket.emit("user:online", sessionUserId);
+        });
+
+        newSocket.on("connect_error", (error) => {
+            console.error("❌ Socket connection error:", error);
+        });
+
+        newSocket.on("disconnect", (reason) => {
+            console.log("🔴 Socket disconnected:", reason);
+        });
+
+        // Update state in a way that doesn't trigger the warning
+        // by batching the updates together
+        setUserId(sessionUserId);
+        setSocket(newSocket);
+
+        return () => {
+            console.log("🧹 Cleaning up socket connection");
+            newSocket.close();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session]);
 
     useEffect(() => {

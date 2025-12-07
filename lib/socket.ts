@@ -5,7 +5,7 @@ import { io, Socket } from "socket.io-client";
 let socketInstance: Socket;
 
 if (typeof window !== "undefined") {
-  socketInstance = io("http://localhost:6000", {
+  socketInstance = io("http://127.0.0.1:3001", {
     transports: ["websocket"],
     reconnection: true,
     autoConnect: true,

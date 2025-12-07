@@ -170,7 +170,7 @@ export default function SchedulePage() {
                                     <h3 className="text-2xl font-bold text-gray-900">Confirm Your Booking</h3>
                                     <button
                                         onClick={() => setSelectedSlot(null)}
-                                        className="text-gray-400 hover:text-gray-600 text-2xl"
+                                        className="text-gray-500 hover:text-gray-600 text-2xl"
                                     >
                                         ✕
                                     </button>
@@ -261,7 +261,7 @@ export default function SchedulePage() {
                             </div>
                             <button
                                 onClick={() => setShowToast(false)}
-                                className="text-gray-400 hover:text-gray-600"
+                                className="text-gray-500 hover:text-gray-600"
                             >
                                 ✕
                             </button>

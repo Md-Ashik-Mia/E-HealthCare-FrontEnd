@@ -5,24 +5,26 @@ import { publicApi } from '@/lib/axios';
 // ============================================================================
 
 export const loginUser = async (credentials: { email: string; password: string }) => {
-    const response = await publicApi.post('/auth/login', credentials);
+  const response = await publicApi.post('/auth/login', credentials);
 
-    // Store token in localStorage
-    if (response.data.token && typeof window !== 'undefined') {
-        localStorage.setItem('access_token', response.data.token);
-    }
+  // Store token in localStorage
+  // NOTE: This runs on the server during NextAuth flow, so we cannot access localStorage here.
+  // The token will be handled by the NextAuth session callback.
+  // if (response.data.token && typeof window !== 'undefined') {
+  //     localStorage.setItem('access_token', response.data.token);
+  // }
 
-    return response.data;
+  return response.data;
 };
 
 export const registerUser = async (data: {
-    name: string;
-    email: string;
-    password: string;
-    role: 'patient' | 'doctor'
+  name: string;
+  email: string;
+  password: string;
+  role: 'patient' | 'doctor'
 }) => {
-    const response = await publicApi.post('/auth/register', data);
-    return response.data;
+  const response = await publicApi.post('/auth/register', data);
+  return response.data;
 };
 
 // ============================================================================

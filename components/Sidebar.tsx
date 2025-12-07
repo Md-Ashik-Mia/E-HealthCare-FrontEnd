@@ -28,6 +28,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
         { href: '/dashboard/doctor/patients', label: 'My Patients', icon: '👥' },
         { href: '/dashboard/doctor/schedule', label: 'Schedule', icon: '🗓️' },
         { href: '/dashboard/doctor/chats', label: 'Chats', icon: '💬' },
+        { href: '/dashboard/doctor/profile', label: 'Profile', icon: '👤' },
     ];
 
     const adminLinks: SidebarLink[] = [

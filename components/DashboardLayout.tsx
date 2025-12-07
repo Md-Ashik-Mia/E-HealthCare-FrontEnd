@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Sidebar from './Sidebar';
-import CallWindow from './CallWindow';
+
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -36,8 +36,6 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
         <div className="flex h-screen bg-gray-50">
             <Sidebar role={role} />
             <main className="ml-64 flex-1 overflow-y-auto p-8">{children}</main>
-            {/* Floating Call Window */}
-            <CallWindow />
         </div>
     );
 }

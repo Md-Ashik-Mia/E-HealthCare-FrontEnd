@@ -45,7 +45,7 @@ export default function RegisterPage() {
                     <div className="mb-4">
                         <label className="mb-2 block text-sm font-semibold text-gray-700">Full Name</label>
                         <input
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 placeholder:text-gray-500"
                             type="text"
                             placeholder="Enter your full name"
                             value={formData.name}
@@ -57,7 +57,7 @@ export default function RegisterPage() {
                     <div className="mb-4">
                         <label className="mb-2 block text-sm font-semibold text-gray-700">Email Address</label>
                         <input
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 placeholder:text-gray-500"
                             type="email"
                             placeholder="Enter your email"
                             value={formData.email}
@@ -69,7 +69,7 @@ export default function RegisterPage() {
                     <div className="mb-4">
                         <label className="mb-2 block text-sm font-semibold text-gray-700">Password</label>
                         <input
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 placeholder:text-gray-500"
                             type="password"
                             placeholder="Create a password"
                             value={formData.password}

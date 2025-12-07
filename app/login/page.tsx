@@ -128,13 +128,13 @@ export default function LoginPage() {
                                 </label>
                                 <div className="relative">
                                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                                        <span className="text-gray-400">📧</span>
+                                        <span className="text-gray-500">📧</span>
                                     </div>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full rounded-xl border-2 border-gray-200 bg-gray-50 py-3 pl-12 pr-4 text-gray-900 transition-all duration-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
+                                        className="w-full rounded-xl border-2 border-gray-200 bg-gray-50 py-3 pl-12 pr-4 text-gray-900 transition-all duration-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 placeholder:text-gray-500"
                                         placeholder="Enter your email"
                                         required
                                     />
@@ -148,20 +148,20 @@ export default function LoginPage() {
                                 </label>
                                 <div className="relative">
                                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                                        <span className="text-gray-400">🔒</span>
+                                        <span className="text-gray-500">🔒</span>
                                     </div>
                                     <input
                                         type={showPassword ? 'text' : 'password'}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full rounded-xl border-2 border-gray-200 bg-gray-50 py-3 pl-12 pr-12 text-gray-900 transition-all duration-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
+                                        className="w-full rounded-xl border-2 border-gray-200 bg-gray-50 py-3 pl-12 pr-12 text-gray-900 transition-all duration-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 placeholder:text-gray-500"
                                         placeholder="Enter your password"
                                         required
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600"
+                                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-500 hover:text-gray-600"
                                     >
                                         {showPassword ? '👁️' : '👁️‍🗨️'}
                                     </button>

@@ -4,7 +4,10 @@ const API_URL = 'http://localhost:5000/chat';
 
 // Helper to get token
 const getAuthHeader = () => {
-    const token = localStorage.getItem('access_token');
+    let token = null;
+    if (typeof window !== 'undefined') {
+        token = localStorage.getItem('access_token');
+    }
     return { headers: { 'x-auth-token': token } };
 };
 

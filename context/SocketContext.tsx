@@ -64,7 +64,6 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
         console.log(`🔌 Creating new socket connection to ${BASE_URL}`);
         const newSocket = io(BASE_URL, {
             auth: { token },
-            transports: ["websocket"],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,

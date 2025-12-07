@@ -7,7 +7,6 @@ let socketInstance: Socket;
 
 if (typeof window !== "undefined") {
   socketInstance = io(BASE_URL, {
-    transports: ["websocket"],
     reconnection: true,
     autoConnect: true,
     auth: {

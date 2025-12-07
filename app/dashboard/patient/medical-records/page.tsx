@@ -36,9 +36,9 @@ export default function PatientMedicalRecordsPage() {
     const updateMutation = useMutation({
         mutationFn: () => createOrUpdateMedicalRecord(userId!, {
             bloodType: formData.bloodType,
-            allergies: formData.allergies.split(',').map(a => a.trim()).filter(Boolean),
-            chronicConditions: formData.chronicConditions.split(',').map(c => c.trim()).filter(Boolean),
-            currentMedications: formData.currentMedications.split(',').map(m => m.trim()).filter(Boolean),
+            allergies: formData.allergies.split(',').map((a: string) => a.trim()).filter(Boolean),
+            chronicConditions: formData.chronicConditions.split(',').map((c: string) => c.trim()).filter(Boolean),
+            currentMedications: formData.currentMedications.split(',').map((m: string) => m.trim()).filter(Boolean),
             familyHistory: formData.familyHistory,
             height: formData.height ? Number(formData.height) : undefined,
             weight: formData.weight ? Number(formData.weight) : undefined,

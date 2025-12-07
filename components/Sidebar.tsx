@@ -17,7 +17,8 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
         { href: '/dashboard/patient', label: 'Dashboard', icon: '🏠' },
         { href: '/dashboard/patient/find-doctor', label: 'Find Doctor', icon: '🔍' },
         { href: '/dashboard/patient/appointments', label: 'Appointments', icon: '📅' },
-        { href: '/dashboard/patient/history', label: 'Medical History', icon: '📋' },
+        { href: '/dashboard/patient/prescriptions', label: 'Prescriptions', icon: '💊' },
+        { href: '/dashboard/patient/medical-records', label: 'Medical Records', icon: '📋' },
         { href: '/dashboard/patient/chats', label: 'Chats', icon: '💬' },
         { href: '/dashboard/patient/profile', label: 'Profile', icon: '👤' },
     ];
@@ -25,6 +26,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
     const doctorLinks: SidebarLink[] = [
         { href: '/dashboard/doctor', label: 'Dashboard', icon: '🏠' },
         { href: '/dashboard/doctor/appointments', label: 'Appointments', icon: '📅' },
+        { href: '/dashboard/doctor/prescriptions', label: 'Prescriptions', icon: '💊' },
         { href: '/dashboard/doctor/patients', label: 'My Patients', icon: '👥' },
         { href: '/dashboard/doctor/schedule', label: 'Schedule', icon: '🗓️' },
         { href: '/dashboard/doctor/chats', label: 'Chats', icon: '💬' },

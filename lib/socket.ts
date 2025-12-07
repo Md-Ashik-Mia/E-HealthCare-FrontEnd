@@ -1,11 +1,12 @@
 "use client";
 
 import { io, Socket } from "socket.io-client";
+import { BASE_URL } from "./axios";
 
 let socketInstance: Socket;
 
 if (typeof window !== "undefined") {
-  socketInstance = io("http://127.0.0.1:3001", {
+  socketInstance = io(BASE_URL, {
     transports: ["websocket"],
     reconnection: true,
     autoConnect: true,

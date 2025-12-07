@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 
+import { BASE_URL } from "../lib/axios";
+
 interface SocketContextType {
     socket: Socket | null;
     onlineUsers: string[];
@@ -59,8 +61,8 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
             socket.close();
         }
 
-        console.log("🔌 Creating new socket connection to http://127.0.0.1:3001");
-        const newSocket = io("http://127.0.0.1:3001", {
+        console.log(`🔌 Creating new socket connection to ${BASE_URL}`);
+        const newSocket = io(BASE_URL, {
             auth: { token },
             transports: ["websocket"],
             reconnection: true,

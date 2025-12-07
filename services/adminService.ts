@@ -25,7 +25,7 @@ export const rejectDoctor = async (doctorId: string) => {
 };
 
 export const getAllUsers = async () => {
-  const response = await adminApi.get('/users/');
+  const response = await adminApi.get('/admin/users');
   return response.data;
 };
 

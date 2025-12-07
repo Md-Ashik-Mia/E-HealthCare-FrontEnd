@@ -31,6 +31,12 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
     const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
+        // Ensure this runs only in the browser
+        if (typeof window === "undefined") {
+            console.debug("SocketContext: skipping socket setup on server");
+            return;
+        }
+
         // Get token from localStorage
         const token = localStorage.getItem("access_token");
 
@@ -46,7 +52,7 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
         });
 
         if (!token || !sessionUserId) {
-            console.log("⚠️ Cannot create socket: missing token or userId");
+            console.debug("⚠️ SocketContext: Waiting for token or userId...");
             return;
         }
 

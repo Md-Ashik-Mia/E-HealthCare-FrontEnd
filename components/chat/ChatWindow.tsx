@@ -25,6 +25,8 @@ export default function ChatWindow({
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const api = role === "doctor" ? doctorApi : patientApi;
   const bottomRef = useRef<HTMLDivElement>(null);
   const { userId, onlineUsers, socket } = useSocket();
@@ -35,13 +37,23 @@ export default function ChatWindow({
   useEffect(() => {
     if (!conversationId || !socket) return;
 
+    // Clear previous messages and errors immediately when switching conversations
+    setMessages([]);
+    setError(null);
+    setLoading(true);
+
     console.log("📡 Fetching messages for conversation:", conversationId);
-    api.get(`/chat/${conversationId}/messages`).then((res) => {
-      console.log("📥 Loaded messages:", res.data.length);
-      setMessages(res.data);
-    }).catch(err => {
-      console.error("❌ Error loading messages:", err);
-    });
+    api.get(`/chat/${conversationId}/messages`)
+      .then((res) => {
+        console.log("📥 Loaded messages:", res.data.length);
+        setMessages(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("❌ Error loading messages:", err);
+        setError("Failed to load messages. Please try again.");
+        setLoading(false);
+      });
 
     const handleMessageReceive = (msg: Msg) => {
       console.log("📨 Message received via socket:", msg);
@@ -180,11 +192,25 @@ export default function ChatWindow({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-        {messages.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="text-sm mt-4">Loading messages...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-full text-red-500">
+            <p className="text-lg">⚠️ {error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Reload Page
+            </button>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <p className="text-lg">No messages yet</p>
             <p className="text-sm mt-2">Start the conversation by sending a message below</p>
-            <p className="text-xs mt-4 text-gray-400">Debug: userId={userId || 'undefined'}</p>
           </div>
         ) : (
           messages.map((m) => (

@@ -4,12 +4,18 @@ import { useEffect, useState } from "react";
 import { patientApi, doctorApi } from "@/lib/axios";
 import { useSocket } from "@/context/SocketContext";
 import clsx from "clsx";
+import { useSession } from "next-auth/react";
 
 interface Conversation {
   _id: string;
   participants: { _id: string; name: string; role: string }[];
   lastMessage: string;
 }
+
+type SessionUser = {
+  id?: string;
+  _id?: string;
+};
 
 export default function ChatSidebar({
   role,
@@ -18,10 +24,40 @@ export default function ChatSidebar({
   role: "doctor" | "patient";
   onSelect: (id: string, user: { _id: string; name: string; role: string } | undefined) => void;
 }) {
+  const { data: session } = useSession();
+  const sessionUser = session?.user as unknown as SessionUser | undefined;
+  const sessionUserId = sessionUser?.id ?? sessionUser?._id;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isAIEnabled, setIsAIEnabled] = useState(false);
   const api = role === "doctor" ? doctorApi : patientApi;
   const { onlineUsers } = useSocket();
+
+  useEffect(() => {
+    if (role !== "doctor" || !sessionUserId) return;
+
+    doctorApi
+      .get(`/ai/status/${sessionUserId}`)
+      .then((res) => setIsAIEnabled(res.data.isAIEnabled))
+      .catch((err) =>
+        console.log("AI Status fetch error (might be not set yet):", err)
+      );
+  }, [role, sessionUserId]);
+
+  const handleToggleAI = async () => {
+    if (!sessionUserId) return;
+    try {
+      const newStatus = !isAIEnabled;
+      setIsAIEnabled(newStatus); // Optimistic update
+      await doctorApi.patch('/ai/toggle', {
+        doctorId: sessionUserId,
+        isAIEnabled: newStatus
+      });
+    } catch (error) {
+      console.error("Failed to toggle AI", error);
+      setIsAIEnabled(!isAIEnabled); // Revert on error
+    }
+  };
 
   useEffect(() => {
     api.get("/chat/my").then((res) => setConversations(res.data));
@@ -36,10 +72,28 @@ export default function ChatSidebar({
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
-        <h2 className="font-semibold text-xl text-gray-900">Messages</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          {role === "doctor" ? "Your patients" : "Your doctors"}
-        </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="font-semibold text-xl text-gray-900">Messages</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {role === "doctor" ? "Your patients" : "Your doctors"}
+            </p>
+          </div>
+          {role === "doctor" && session?.user && (
+            <div className="flex flex-col items-end gap-1">
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={isAIEnabled}
+                  onChange={handleToggleAI}
+                />
+                <div className="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+              <span className="text-xs text-gray-500 font-medium">Auto-Reply {isAIEnabled ? 'On' : 'Off'}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Conversations List */}

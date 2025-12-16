@@ -57,7 +57,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="bg-gray-900 py-12 text-white">
+      <footer className="border-t border-gray-200 bg-white py-12 text-gray-600">
         <div className="container mx-auto px-4 text-center">
           <p>&copy; 2023 MediCare+. All rights reserved.</p>
         </div>

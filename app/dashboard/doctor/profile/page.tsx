@@ -158,7 +158,7 @@ export default function DoctorProfilePage() {
                                         value={formData.speciality}
                                         onChange={handleChange}
                                         disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                                         placeholder="e.g., Cardiology"
                                     />
                                 </div>
@@ -170,7 +170,7 @@ export default function DoctorProfilePage() {
                                         value={formData.degree}
                                         onChange={handleChange}
                                         disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                                         placeholder="e.g., MBBS, MD"
                                     />
                                 </div>
@@ -182,7 +182,7 @@ export default function DoctorProfilePage() {
                                         value={formData.registrationNumber}
                                         onChange={handleChange}
                                         disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                                         placeholder="Medical registration number"
                                     />
                                 </div>
@@ -194,7 +194,7 @@ export default function DoctorProfilePage() {
                                         value={formData.experienceYears}
                                         onChange={handleChange}
                                         disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                                         min="0"
                                     />
                                 </div>
@@ -206,7 +206,7 @@ export default function DoctorProfilePage() {
                                         value={formData.phone}
                                         onChange={handleChange}
                                         disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                                         placeholder="Contact number"
                                     />
                                 </div>
@@ -218,7 +218,7 @@ export default function DoctorProfilePage() {
                                         value={formData.bio}
                                         onChange={handleChange}
                                         disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                                         placeholder="Tell patients about your experience and expertise..."
                                     />
                                 </div>
@@ -237,7 +237,7 @@ export default function DoctorProfilePage() {
                                         value={formData.consultationFee}
                                         onChange={handleChange}
                                         disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                                         min="0"
                                     />
                                 </div>
@@ -289,7 +289,7 @@ export default function DoctorProfilePage() {
                                         value={formData.aiInstructions}
                                         onChange={handleChange}
                                         disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                                         placeholder="E.g., Be polite, ask for symptoms, do not prescribe medication..."
                                     />
                                     <p className="mt-1 text-xs text-gray-500">Instructions for the AI when replying to patients on your behalf.</p>

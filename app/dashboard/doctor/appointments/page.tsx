@@ -83,9 +83,11 @@ export default function DoctorAppointmentsPage() {
                                                     P
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-gray-900">Patient ID</div>
+                                                    <div className="font-medium text-gray-900">
+                                                        {apt.patientId?.name || apt.patientName || 'Unknown'}
+                                                    </div>
                                                     <div className="text-xs font-mono text-gray-500 bg-gray-100 px-1 rounded inline-block">
-                                                        {apt.patientId.substring(0, 8)}...
+                                                        {(apt.patientId?._id || apt.patientId || '').toString().substring(0, 8)}...
                                                     </div>
                                                 </div>
                                             </div>
@@ -173,8 +175,9 @@ export default function DoctorAppointmentsPage() {
 
                         <div className="space-y-4">
                             <div className="rounded-lg bg-gray-50 p-4">
-                                <p className="text-sm text-gray-500">Patient ID</p>
-                                <p className="font-mono font-medium text-gray-900">{selectedAppointment.patientId}</p>
+                                <p className="text-sm text-gray-500">Patient</p>
+                                <p className="font-medium text-gray-900">{selectedAppointment.patientId?.name || 'Unknown'}</p>
+                                <p className="text-xs font-mono text-gray-500 mt-1">ID: {selectedAppointment.patientId?._id || selectedAppointment.patientId}</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

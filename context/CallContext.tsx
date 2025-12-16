@@ -10,12 +10,19 @@ interface CallContextType {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
 
+  // New: Call notification state
+  callAvailable: boolean;
+  callerInfo: { id: string; name: string } | null;
+
   openCall: (id: string) => void;
   closeCall: () => void;
+  joinCall: () => void; // New: Explicit join function
 
   setLocalStream: (s: MediaStream) => void;
   setRemoteStream: (s: MediaStream) => void;
   setInCall: (v: boolean) => void;
+  setCallAvailable: (v: boolean) => void; // New
+  setCallerInfo: (info: { id: string; name: string } | null) => void; // New
 
   peerRef: React.MutableRefObject<RTCPeerConnection | null>;
 }
@@ -30,6 +37,10 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
+  // New: Call notification state
+  const [callAvailable, setCallAvailable] = useState(false);
+  const [callerInfo, setCallerInfo] = useState<{ id: string; name: string } | null>(null);
+
   const peerRef = useRef<RTCPeerConnection | null>(null);
 
   function openCall(id: string) {
@@ -37,9 +48,18 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
     setRemoteUserId(id);
   }
 
+  function joinCall() {
+    // This will be called when user clicks "Join Call" button
+    // The actual WebRTC connection will be handled in CallWindow
+    setCallAvailable(false);
+    setIsOpen(true);
+  }
+
   function closeCall() {
     setIsOpen(false);
     setInCall(false);
+    setCallAvailable(false);
+    setCallerInfo(null);
 
     // Stop video streams
     localStream?.getTracks().forEach((t) => t.stop());
@@ -65,12 +85,18 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
         localStream,
         remoteStream,
 
+        callAvailable,
+        callerInfo,
+
         openCall,
         closeCall,
+        joinCall,
 
         setLocalStream,
         setRemoteStream,
         setInCall,
+        setCallAvailable,
+        setCallerInfo,
 
         peerRef,
       }}

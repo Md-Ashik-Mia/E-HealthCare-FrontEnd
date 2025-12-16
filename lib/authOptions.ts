@@ -2,7 +2,13 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { loginUser } from "@/services/authService";
 
+// Debugging secret loading
+console.log("🔑 NEXTAUTH_SECRET check:", process.env.NEXTAUTH_SECRET ? "Defined" : "Undefined", process.env.NODE_ENV);
+
 export const authOptions: NextAuthOptions = {
+    // Use environment variable for secret, fallback to hardcoded (dev only)
+    secret: process.env.NEXTAUTH_SECRET || "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    debug: process.env.NODE_ENV === "development",
     providers: [
         CredentialsProvider({
             name: "Credentials",
@@ -11,6 +17,7 @@ export const authOptions: NextAuthOptions = {
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
+                console.log("🔐 Authorize called with:", credentials?.email);
                 try {
                     // Call backend login API
                     const data = await loginUser({

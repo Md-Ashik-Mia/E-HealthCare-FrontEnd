@@ -33,7 +33,7 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
     }
 
     return (
-        <div className="flex h-screen bg-gray-50">
+        <div className="flex h-screen bg-gray-50 text-gray-900">
             <Sidebar role={role} />
             <main className="ml-64 flex-1 overflow-y-auto p-8">{children}</main>
         </div>

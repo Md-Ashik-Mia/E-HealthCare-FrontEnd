@@ -52,7 +52,7 @@ export default function DoctorPrescriptionsPage() {
         try {
             await createPrescription({
                 appointmentId: selectedAppointment._id,
-                patientId: selectedAppointment.patientId || selectedAppointment.userId,
+                patientId: selectedAppointment.patientId?._id || selectedAppointment.patientId || selectedAppointment.userId,
                 medications: medications.filter(m => m.name),
                 diagnosis,
                 notes,
@@ -88,7 +88,7 @@ export default function DoctorPrescriptionsPage() {
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900">Create Prescription</h1>
                         <p className="mt-2 text-gray-600">
-                            Patient: {selectedAppointment.patientName || 'Unknown'}
+                            Patient: {selectedAppointment.patientId?.name || selectedAppointment.patientName || 'Unknown'}
                         </p>
                     </div>
                     <Button variant="outline" onClick={() => setShowForm(false)}>
@@ -252,14 +252,14 @@ export default function DoctorPrescriptionsPage() {
                                 {appointments.map((apt: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                                     <tr key={apt._id}>
                                         <td className="py-4 font-medium text-gray-900">
-                                            {apt.patientName || 'Unknown'}
+                                            {apt.patientId?.name || apt.patientName || 'Unknown'}
                                         </td>
                                         <td className="py-4 text-gray-600">{apt.date}</td>
                                         <td className="py-4 text-gray-600">{apt.time}</td>
                                         <td className="py-4">
                                             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${apt.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                                    apt.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                        'bg-gray-100 text-gray-800'
+                                                apt.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-gray-100 text-gray-800'
                                                 }`}>
                                                 {apt.status}
                                             </span>

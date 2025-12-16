@@ -9,7 +9,7 @@ const getAuthHeader = () => {
     if (typeof window !== 'undefined') {
         token = localStorage.getItem('access_token');
     }
-    return { headers: { 'x-auth-token': token } };
+    return { headers: { Authorization: token ? `Bearer ${token}` : '' } };
 };
 
 export const startConversation = async (userId: string) => {

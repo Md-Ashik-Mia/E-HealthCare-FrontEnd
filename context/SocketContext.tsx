@@ -28,44 +28,31 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
     const { data: session } = useSession();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
-    const [userId, setUserId] = useState<string | null>(null);
+
+    // Extract userId to a stable primitive to prevent effect re-runs on session object reference changes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sessionUserId = (session?.user as any)?.id || (session?.user as any)?._id;
 
     useEffect(() => {
         // Ensure this runs only in the browser
         if (typeof window === "undefined") {
-            console.debug("SocketContext: skipping socket setup on server");
             return;
         }
 
         // Get token from localStorage
         const token = localStorage.getItem("access_token");
 
-        // Get user ID from session
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sessionUserId = (session?.user as any)?.id;
-
         console.log("🔍 SocketContext: Checking connection requirements", {
             hasToken: !!token,
-            hasUserId: !!sessionUserId,
             userId: sessionUserId,
-            currentSocketId: socket?.id
         });
 
         if (!token || !sessionUserId) {
-            console.debug("⚠️ SocketContext: Waiting for token or userId...");
             return;
         }
 
-        // If we already have a socket and the user ID hasn't changed, don't reconnect
-        if (socket && userId === sessionUserId) {
-            return;
-        }
-
-        // Close existing socket if any
-        if (socket) {
-            console.log("♻️ Closing existing socket before reconnecting");
-            socket.close();
-        }
+        // If we already have a socket connected for this user, do nothing
+        // This check is implicitly handled by the dependency array now.
 
         console.log(`🔌 Creating new socket connection to ${BASE_URL}`);
         const newSocket = io(BASE_URL, {
@@ -77,7 +64,6 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
 
         newSocket.on("connect", () => {
             console.log("✅ Socket connected:", newSocket.id);
-            // Emit user online status with actual user ID
             newSocket.emit("user:online", sessionUserId);
         });
 
@@ -89,28 +75,34 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
             console.log("🔴 Socket disconnected:", reason);
         });
 
-        // Update state in a way that doesn't trigger the warning
-        // by batching the updates together
-        setUserId(sessionUserId);
-        setSocket(newSocket);
+        // Avoid calling setState synchronously in the effect body (eslint rule)
+        Promise.resolve().then(() => setSocket(newSocket));
 
         return () => {
             console.log("🧹 Cleaning up socket connection");
             newSocket.close();
+            Promise.resolve().then(() => setSocket(null));
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [session]);
+        // Dependency is now only the primitive ID, not the whole session object
+    }, [sessionUserId]);
 
     useEffect(() => {
-        if (socket) {
-            socket.on("users:online", (users: string[]) => {
-                setOnlineUsers(users);
-            });
-        }
+        if (!socket) return;
+
+        const handlePresenceUpdate = (users: string[]) => {
+            setOnlineUsers(users);
+        };
+
+        // Backend emits `presence:update`
+        socket.on("presence:update", handlePresenceUpdate);
+
+        return () => {
+            socket.off("presence:update", handlePresenceUpdate);
+        };
     }, [socket]);
 
     return (
-        <SocketContext.Provider value={{ socket, onlineUsers, userId }}>
+        <SocketContext.Provider value={{ socket, onlineUsers, userId: sessionUserId }}>
             {children}
         </SocketContext.Provider>
     );

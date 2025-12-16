@@ -59,6 +59,16 @@ export const completeAppointment = async (appointmentId: string) => {
   return response.data;
 };
 
+export const getDoctorPatients = async () => {
+  const response = await doctorApi.get('/doctor/patients');
+  return response.data;
+};
+
+export const getPatientDetails = async (id: string) => {
+  const response = await doctorApi.get(`/doctor/patients/${id}`);
+  return response.data;
+};
+
 // ============================================================================
 // MOCK DATA IMPLEMENTATION (Commented out - uncomment to use mock data)
 // ============================================================================

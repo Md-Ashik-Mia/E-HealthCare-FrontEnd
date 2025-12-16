@@ -6,7 +6,19 @@ import { patientApi } from '@/lib/axios';
 
 export const getPatientProfile = async () => {
   const response = await patientApi.get('/patient/profile');
-  return response.data;
+  const data = response.data;
+
+  // Backend returns either a PatientProfile doc (with populated userId) or
+  // { userId: {name,email}, isNewProfile: true }
+  const user = data?.userId;
+  const name = user?.name;
+  const email = user?.email;
+
+  return {
+    ...data,
+    name,
+    email,
+  };
 };
 
 export const getPatientAppointments = async () => {
@@ -31,7 +43,8 @@ export const cancelAppointment = async (appointmentId: string) => {
 };
 
 export const getDoctorAvailability = async (doctorId: string) => {
-  const response = await patientApi.get(`/doctor/${doctorId}`);
+  // Backend route is mounted at /appointments
+  const response = await patientApi.get(`/appointments/doctor/${doctorId}`);
   return response.data;
 };
 
@@ -55,6 +68,12 @@ export const updateProfile = async (data: {
     name?: string;
     relation?: string;
     phone?: string;
+  };
+  healthMetrics?: {
+    heartRate?: string;
+    bloodPressure?: string;
+    weight?: string;
+    bloodGlucose?: string;
   };
 }) => {
   const response = await patientApi.post('/patient/profile', data);

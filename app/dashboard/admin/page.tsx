@@ -62,15 +62,15 @@ export default function AdminDashboard() {
                 </Card>
                 <Card>
                     <p className="text-sm text-gray-500">Total Patients</p>
-                    <p className="text-2xl font-bold">{stats?.totalPatients || 0}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats?.totalPatients || 0}</p>
                 </Card>
                 <Card>
                     <p className="text-sm text-gray-500">Total Doctors</p>
-                    <p className="text-2xl font-bold">{stats?.totalDoctors || 0}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats?.totalDoctors || 0}</p>
                 </Card>
                 <Card>
                     <p className="text-sm text-gray-500">Active Appointments</p>
-                    <p className="text-2xl font-bold">{stats?.activeAppointments || 0}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats?.activeAppointments || 0}</p>
                 </Card>
             </div>
 
@@ -80,11 +80,11 @@ export default function AdminDashboard() {
                     {pendingDoctors && Array.isArray(pendingDoctors) && pendingDoctors.length > 0 ? (
                         <div className="space-y-4">
                             {pendingDoctors.map((doc: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
-                                <div key={doc.id || doc._id} className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-gray-50">
+                                <div key={doc.id || doc._id} className="flex items-center justify-between rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50">
                                     <div className="flex items-center gap-4">
                                         <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">👨‍⚕️</div>
                                         <div>
-                                            <p className="font-semibold">{doc.name}</p>
+                                            <p className="font-semibold text-gray-900">{doc.name}</p>
                                             <p className="text-sm text-gray-500">{doc.email} • {doc.specialization}</p>
                                             <p className="text-xs text-gray-400">Applied: {doc.appliedDate || 'N/A'}</p>
                                         </div>
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="border-b text-sm text-gray-500">
+                                <tr className="border-b border-gray-200 text-sm text-gray-500">
                                     <th className="pb-3 pl-4">Name</th>
                                     <th className="pb-3">Email</th>
                                     <th className="pb-3">Role</th>
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
                                     <th className="pb-3">Joined Date</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y">
+                            <tbody className="divide-y divide-gray-100">
                                 {users.map((user: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                                     <tr key={user._id} className="hover:bg-gray-50 transition-colors">
                                         <td className="py-4 pl-4 font-medium text-gray-900">{user.name}</td>

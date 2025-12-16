@@ -46,12 +46,8 @@ export default function PatientAppointmentsPage() {
 
     const isLoading = appointmentsLoading || doctorsLoading;
 
-    // Helper to get doctor name
-    const getDoctorName = (id: string) => {
-        if (!doctors) return 'Unknown Doctor';
-        const doctor = doctors.find((d: any) => (d._id || d.id) === id); // eslint-disable-line @typescript-eslint/no-explicit-any
-        return doctor ? doctor.name : 'Unknown Doctor';
-    };
+    // Helper to get doctor name (Deprecated: backend now populates doctor)
+    // const getDoctorName = (id: string) => { ... }
 
     if (isLoading) {
         return (
@@ -100,9 +96,11 @@ export default function PatientAppointmentsPage() {
                                                 </div>
                                                 <div>
                                                     <div className="font-medium text-gray-900">
-                                                        {getDoctorName(apt.doctorId)}
+                                                        {apt.doctorId?.name || 'Unknown Doctor'}
                                                     </div>
-                                                    <div className="text-xs text-gray-500">ID: {apt.doctorId.substring(0, 6)}...</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        ID: {(apt.doctorId?._id || apt.doctorId || '').toString().substring(0, 6)}...
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>

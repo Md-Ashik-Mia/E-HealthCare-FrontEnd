@@ -27,6 +27,7 @@ export default function ChatWindow({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAIEnabled, setIsAIEnabled] = useState(false); // New state for AI Toggle
   const api = role === "doctor" ? doctorApi : patientApi;
   const bottomRef = useRef<HTMLDivElement>(null);
   const { userId, onlineUsers, socket } = useSocket();
@@ -37,10 +38,15 @@ export default function ChatWindow({
   useEffect(() => {
     if (!conversationId || !socket) return;
 
+    let cancelled = false;
+
     // Clear previous messages and errors immediately when switching conversations
-    setMessages([]);
-    setError(null);
-    setLoading(true);
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setMessages([]);
+      setError(null);
+      setLoading(true);
+    });
 
     console.log("📡 Fetching messages for conversation:", conversationId);
     api.get(`/chat/${conversationId}/messages`)
@@ -54,6 +60,13 @@ export default function ChatWindow({
         setError("Failed to load messages. Please try again.");
         setLoading(false);
       });
+
+    // Check AI Status if current user is doctor
+    if (role === 'doctor' && userId) {
+      api.get(`/ai/status/${userId}`)
+        .then(res => setIsAIEnabled(res.data.isAIEnabled))
+        .catch(err => console.error("❌ Error fetching AI status:", err));
+    }
 
     const handleMessageReceive = (msg: Msg) => {
       console.log("📨 Message received via socket:", msg);
@@ -94,13 +107,26 @@ export default function ChatWindow({
     socket.on("message:receive", handleMessageReceive);
 
     return () => {
+      cancelled = true;
       socket.off("message:receive", handleMessageReceive);
     };
-  }, [conversationId, socket, api, userId]);
+  }, [conversationId, socket, api, userId, role]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const toggleAI = async () => {
+    if (!userId) return;
+    try {
+      const newState = !isAIEnabled;
+      setIsAIEnabled(newState); // Optimistic update
+      await api.patch('/ai/toggle', { doctorId: userId, isAIEnabled: newState });
+    } catch (err) {
+      console.error("❌ Error toggling AI:", err);
+      setIsAIEnabled(!isAIEnabled); // Revert on error
+    }
+  };
 
   function send() {
     if (!input.trim() || !userId || !socket) {
@@ -170,6 +196,23 @@ export default function ChatWindow({
             </p>
           </div>
         </div>
+
+        {/* AI Toggle for Doctor */}
+        {role === 'doctor' && (
+          <button
+            onClick={toggleAI}
+            className={clsx(
+              "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border mr-auto ml-4",
+              isAIEnabled
+                ? "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200"
+                : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200"
+            )}
+            title={isAIEnabled ? "Disable AI Auto-reply" : "Enable AI Auto-reply"}
+          >
+            <span className="text-lg">🤖</span>
+            {isAIEnabled ? "AI On" : "AI Off"}
+          </button>
+        )}
 
         {/* Call Buttons */}
         <div className="flex gap-2">

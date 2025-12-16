@@ -44,9 +44,9 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
     const title = role === 'patient' ? 'Patient Portal' : role === 'doctor' ? 'Doctor Portal' : 'Admin Portal';
 
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-900 text-white">
-            <div className="flex h-16 items-center justify-center border-b border-gray-800">
-                <h1 className="text-xl font-bold">{title}</h1>
+        <aside className="fixed left-0 top-0 h-screen w-64 border-r border-gray-200 bg-white text-gray-900">
+            <div className="flex h-16 items-center justify-center border-b border-gray-200">
+                <h1 className="text-xl font-bold text-gray-900">{title}</h1>
             </div>
             <nav className="mt-6 px-4">
                 <ul className="space-y-2">
@@ -57,8 +57,8 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
                                 <Link
                                     href={link.href}
                                     className={`flex items-center gap-3 rounded px-4 py-2 transition-colors ${isActive
-                                        ? 'bg-blue-600 text-white'
-                                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                         }`}
                                 >
                                     {link.icon && <span>{link.icon}</span>}
@@ -69,7 +69,7 @@ export default function Sidebar({ role }: { role: 'patient' | 'doctor' | 'admin'
                     })}
                 </ul>
             </nav>
-            <div className="absolute bottom-0 w-full border-t border-gray-800 p-4">
+            <div className="absolute bottom-0 w-full border-t border-gray-200 p-4">
                 <LogoutButton />
             </div>
         </aside>

@@ -69,6 +69,11 @@ export const getPatientDetails = async (id: string) => {
   return response.data;
 };
 
+export const addPatientPrivateNote = async (patientId: string, content: string) => {
+  const response = await doctorApi.post(`/doctor/patients/${patientId}/notes`, { content });
+  return response.data;
+};
+
 // ============================================================================
 // MOCK DATA IMPLEMENTATION (Commented out - uncomment to use mock data)
 // ============================================================================

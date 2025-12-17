@@ -25,6 +25,8 @@ export default function CallWindow() {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
 
   interface Message {
     text: string;
@@ -94,6 +96,37 @@ export default function CallWindow() {
     }
   };
 
+  const stopMediaStream = (stream: MediaStream | null) => {
+    try {
+      stream?.getTracks()?.forEach((t) => t.stop());
+    } catch {
+      // ignore
+    }
+  };
+
+  const clearVideoElementStream = (video: HTMLVideoElement | null) => {
+    if (!video) return;
+    try {
+      const stream = video.srcObject as MediaStream | null;
+      if (stream) stopMediaStream(stream);
+      video.srcObject = null;
+    } catch {
+      // ignore
+    }
+  };
+
+  const cleanupCallMedia = () => {
+    // Stop any streams we tracked explicitly
+    stopMediaStream(localStreamRef.current);
+    stopMediaStream(remoteStreamRef.current);
+    localStreamRef.current = null;
+    remoteStreamRef.current = null;
+
+    // Also clear video element streams (covers cases where state hasn't updated yet)
+    clearVideoElementStream(localVideoRef.current);
+    clearVideoElementStream(remoteVideoRef.current);
+  };
+
   const acceptCall = async () => {
     stopRingtone();
     setIsRinging(false);
@@ -120,6 +153,7 @@ export default function CallWindow() {
 
     peer.ontrack = (event) => {
       setRemoteStream(event.streams[0]);
+      remoteStreamRef.current = event.streams[0];
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
@@ -140,6 +174,8 @@ export default function CallWindow() {
         video: true,
         audio: true,
       });
+
+      localStreamRef.current = stream;
 
       setLocalStream(stream);
 
@@ -168,6 +204,8 @@ export default function CallWindow() {
       isAnsweringCallRef.current = false;
     } catch (err) {
       console.error("Error accepting call:", err);
+      // Ensure we don't leave camera/mic running if something fails mid-setup
+      cleanupCallMedia();
       alert("Could not access camera/microphone");
     }
   };
@@ -178,6 +216,9 @@ export default function CallWindow() {
     setCallAvailable(false);
     setCallerInfo(null);
     setPendingOffer(null);
+
+    // Defensive: ensure we don't keep any streams
+    cleanupCallMedia();
 
     // Notify caller that call was declined
     if (socket && callerId) {
@@ -205,7 +246,10 @@ export default function CallWindow() {
       socket.emit("call:end", { to: remoteUserId });
     }
 
-    // Close the call
+    // Release camera/mic immediately
+    cleanupCallMedia();
+
+    // Close the call state
     closeCall();
   };
 
@@ -220,6 +264,8 @@ export default function CallWindow() {
         video: true,
         audio: true,
       });
+
+      localStreamRef.current = stream;
 
       setLocalStream(stream);
 
@@ -246,6 +292,7 @@ export default function CallWindow() {
       // When remote stream arrives
       peer.ontrack = (event) => {
         setRemoteStream(event.streams[0]);
+        remoteStreamRef.current = event.streams[0];
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = event.streams[0];
         }
@@ -271,6 +318,7 @@ export default function CallWindow() {
       setInCall(true);
     } catch (error) {
       console.error("Error starting call:", error);
+      cleanupCallMedia();
       alert("Could not access camera/microphone. Please check permissions.");
     }
   }
@@ -317,6 +365,7 @@ export default function CallWindow() {
 
     socket.on("call:end", () => {
       console.log("📴 Call ended by remote user");
+      cleanupCallMedia();
       closeCall();
       stopRingtone();
     });

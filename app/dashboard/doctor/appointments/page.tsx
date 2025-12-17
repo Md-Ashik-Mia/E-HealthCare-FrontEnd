@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getDoctorAppointments, confirmAppointment, completeAppointment } from '@/services/doctorService';
+import { getDoctorAppointments, confirmAppointment, cancelAppointment } from '@/services/doctorService';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { useState } from 'react';
@@ -27,14 +27,14 @@ export default function DoctorAppointmentsPage() {
         }
     });
 
-    const completeMutation = useMutation({
-        mutationFn: completeAppointment,
+    const cancelMutation = useMutation({
+        mutationFn: cancelAppointment,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['doctorAppointments'] });
-            toast.success('Appointment marked as completed');
+            toast.success('Appointment cancelled');
         },
         onError: (error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            toast.error('Failed to complete: ' + (error.response?.data?.message || error.message));
+            toast.error('Failed to cancel: ' + (error.response?.data?.message || error.message));
         }
     });
 
@@ -111,38 +111,39 @@ export default function DoctorAppointmentsPage() {
                                                     apt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                                                         'bg-yellow-100 text-yellow-800'
                                                 }`}>
-                                                {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
+                                                {apt.status === 'confirmed' ? 'Taken' : apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
                                             </span>
                                         </td>
                                         <td className="py-4 pr-4">
                                             <div className="flex gap-2">
                                                 {apt.status === 'pending' && (
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                                                        onClick={() => confirmMutation.mutate(apt._id)}
-                                                        disabled={confirmMutation.isPending}
-                                                    >
-                                                        {confirmMutation.isPending ? '...' : 'Confirm'}
-                                                    </Button>
+                                                    <>
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                            onClick={() => confirmMutation.mutate(apt._id)}
+                                                            disabled={confirmMutation.isPending}
+                                                        >
+                                                            {confirmMutation.isPending ? '...' : 'Confirm'}
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-green-600 hover:bg-green-700 text-white"
+                                                            onClick={() => window.location.href = `/dashboard/doctor/chats`}
+                                                        >
+                                                            Take Now
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="text-red-600 border-red-600 hover:bg-red-50"
+                                                            onClick={() => cancelMutation.mutate(apt._id)}
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                    </>
                                                 )}
-                                                {(apt.status === 'pending' || apt.status === 'confirmed') && (
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-green-600 hover:bg-green-700 text-white"
-                                                        onClick={() => completeMutation.mutate(apt._id)}
-                                                        disabled={completeMutation.isPending}
-                                                    >
-                                                        {completeMutation.isPending ? '...' : 'Take Now'}
-                                                    </Button>
-                                                )}
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setSelectedAppointment(apt)}
-                                                >
-                                                    Details
-                                                </Button>
+                                                {/* Confirmed (Taken) and Cancelled states show NO buttons */}
                                             </div>
                                         </td>
                                     </tr>

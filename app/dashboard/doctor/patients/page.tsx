@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getDoctorPatients, getPatientDetails } from '@/services/doctorService';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { addPatientPrivateNote, getDoctorPatients, getPatientDetails } from '@/services/doctorService';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import { toast } from 'react-toastify';
 
 export default function DoctorPatientsPage() {
+    const queryClient = useQueryClient();
     const { data: patients, isLoading } = useQuery({
         queryKey: ['doctorPatients'],
         queryFn: getDoctorPatients,
@@ -14,6 +16,7 @@ export default function DoctorPatientsPage() {
 
     const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'prescriptions'>('details');
+    const [privateNote, setPrivateNote] = useState('');
 
     // Fetch full details when a patient is selected
     const { data: fullRecord, isLoading: isLoadingDetails } = useQuery({
@@ -22,9 +25,25 @@ export default function DoctorPatientsPage() {
         enabled: !!selectedPatientId,
     });
 
+    const addNoteMutation = useMutation({
+        mutationFn: async (content: string) => {
+            if (!selectedPatientId) throw new Error('No patient selected');
+            return addPatientPrivateNote(selectedPatientId, content);
+        },
+        onSuccess: async () => {
+            setPrivateNote('');
+            await queryClient.invalidateQueries({ queryKey: ['patientDetails', selectedPatientId] });
+            toast.success('Private note added');
+        },
+        onError: () => {
+            toast.error('Failed to add private note');
+        },
+    });
+
     const closeInitialModal = () => {
         setSelectedPatientId(null);
         setActiveTab('details');
+        setPrivateNote('');
     };
 
     if (isLoading) {
@@ -190,6 +209,50 @@ export default function DoctorPatientsPage() {
                                                     <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Address</h4>
                                                     <div className="rounded-lg border p-4 bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700">
                                                         <p className="text-sm text-gray-600 dark:text-gray-300">{fullRecord.profile?.address || 'No address provided.'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Doctor-only private notes */}
+                                            <div>
+                                                <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Private Notes (Doctor only)</h4>
+                                                <div className="rounded-lg border p-4 bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700 space-y-4">
+                                                    <div className="space-y-3">
+                                                        {fullRecord.privateNotes && fullRecord.privateNotes.length > 0 ? (
+                                                            fullRecord.privateNotes.map((note: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
+                                                                <div key={note._id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+                                                                    <p className="text-xs text-gray-500">
+                                                                        {new Date(note.createdAt).toLocaleString()}
+                                                                    </p>
+                                                                    <p className="mt-1 text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                                                                        {note.content}
+                                                                    </p>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <p className="text-sm text-gray-500">No private notes yet.</p>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="border-t pt-4 dark:border-gray-700">
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                            Add a private note
+                                                        </label>
+                                                        <textarea
+                                                            value={privateNote}
+                                                            onChange={(e) => setPrivateNote(e.target.value)}
+                                                            rows={3}
+                                                            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 text-gray-900 dark:text-white bg-white dark:bg-gray-900"
+                                                            placeholder="Write your note here (only visible to you)..."
+                                                        />
+                                                        <div className="mt-3 flex justify-end">
+                                                            <Button
+                                                                onClick={() => addNoteMutation.mutate(privateNote)}
+                                                                disabled={addNoteMutation.isPending || !privateNote.trim()}
+                                                            >
+                                                                {addNoteMutation.isPending ? 'Saving...' : 'Add Note'}
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>

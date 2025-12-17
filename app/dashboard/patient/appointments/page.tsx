@@ -133,6 +133,7 @@ export default function PatientAppointmentsPage() {
                                         <td className="py-4 pr-4">
                                             {apt.status !== 'cancelled' && apt.status !== 'completed' && (
                                                 <Button
+                                                    variant="outline"
                                                     className="text-sm px-3 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
                                                     onClick={() => handleCancel(apt._id)}
                                                     disabled={cancellingId === apt._id}

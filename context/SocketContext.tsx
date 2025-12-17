@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
+import { toast } from "react-toastify";
 
 import { BASE_URL } from "../lib/axios";
 
@@ -10,12 +11,16 @@ interface SocketContextType {
     socket: Socket | null;
     onlineUsers: string[];
     userId: string | null;
+    isConversationMuted: (conversationId: string) => boolean;
+    toggleConversationMute: (conversationId: string) => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
     socket: null,
     onlineUsers: [],
     userId: null,
+    isConversationMuted: () => false,
+    toggleConversationMute: () => {},
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -28,10 +33,51 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
     const { data: session } = useSession();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+    const [mutedConversations, setMutedConversations] = useState<string[]>([]);
 
     // Extract userId to a stable primitive to prevent effect re-runs on session object reference changes
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sessionUserId = (session?.user as any)?.id || (session?.user as any)?._id;
+    // Prefer token directly from session to avoid localStorage timing issues.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sessionToken = (session?.user as any)?.accessToken as string | undefined;
+
+    const muteStorageKey = sessionUserId ? `muted_conversations_${sessionUserId}` : null;
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const next = (() => {
+            if (!muteStorageKey) return [];
+            try {
+                const raw = localStorage.getItem(muteStorageKey);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        })();
+
+        // Avoid setState synchronously in effect body (eslint rule)
+        Promise.resolve().then(() => setMutedConversations(next));
+    }, [muteStorageKey]);
+
+    const mutedSet = useMemo(() => new Set(mutedConversations), [mutedConversations]);
+
+    const isConversationMuted = (conversationId: string) => mutedSet.has(conversationId);
+
+    const toggleConversationMute = (conversationId: string) => {
+        if (!muteStorageKey) return;
+        setMutedConversations((prev) => {
+            const next = prev.includes(conversationId)
+                ? prev.filter((id) => id !== conversationId)
+                : [...prev, conversationId];
+            try {
+                localStorage.setItem(muteStorageKey, JSON.stringify(next));
+            } catch {}
+            return next;
+        });
+    };
 
     useEffect(() => {
         // Ensure this runs only in the browser
@@ -39,8 +85,8 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
             return;
         }
 
-        // Get token from localStorage
-        const token = localStorage.getItem("access_token");
+        // Get token (prefer session token; fall back to localStorage)
+        const token = sessionToken || localStorage.getItem("access_token");
 
         console.log("🔍 SocketContext: Checking connection requirements", {
             hasToken: !!token,
@@ -83,8 +129,8 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
             newSocket.close();
             Promise.resolve().then(() => setSocket(null));
         };
-        // Dependency is now only the primitive ID, not the whole session object
-    }, [sessionUserId]);
+        // Reconnect when user or token changes
+    }, [sessionUserId, sessionToken]);
 
     useEffect(() => {
         if (!socket) return;
@@ -96,13 +142,29 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
         // Backend emits `presence:update`
         socket.on("presence:update", handlePresenceUpdate);
 
+        const handleNewNotification = (notification: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            const title = notification?.title || "Notification";
+            const msg = notification?.message || "";
+            const conversationId = notification?.conversationId as string | undefined;
+
+            // If this notification belongs to a muted conversation, suppress it.
+            if (conversationId && mutedSet.has(conversationId)) {
+                return;
+            }
+            // Keep this lightweight; full notification UI can use the REST endpoints.
+            toast.info(msg ? `${title}: ${msg}` : title, { autoClose: 60_000 });
+        };
+
+        socket.on("notification:new", handleNewNotification);
+
         return () => {
             socket.off("presence:update", handlePresenceUpdate);
+            socket.off("notification:new", handleNewNotification);
         };
-    }, [socket]);
+    }, [socket, mutedSet]);
 
     return (
-        <SocketContext.Provider value={{ socket, onlineUsers, userId: sessionUserId }}>
+        <SocketContext.Provider value={{ socket, onlineUsers, userId: sessionUserId, isConversationMuted, toggleConversationMute }}>
             {children}
         </SocketContext.Provider>
     );

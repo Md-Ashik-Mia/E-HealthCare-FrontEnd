@@ -14,6 +14,16 @@ export const getPendingDoctors = async () => {
   return response.data;
 };
 
+export const getAdminPatients = async () => {
+  const response = await adminApi.get('/admin/patients');
+  return response.data;
+};
+
+export const getPatientDetails = async (id: string) => {
+  const response = await adminApi.get(`/admin/patients/${id}`);
+  return response.data;
+};
+
 export const approveDoctor = async (doctorId: string) => {
   const response = await adminApi.patch(`/admin/doctors/${doctorId}/approve`);
   return response.data;

@@ -1,57 +1,64 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDoctorProfile, updateDoctorProfile } from '@/services/doctorService';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { toast } from 'react-toastify';
 
+type ProfileFormData = {
+    speciality: string;
+    registrationNumber: string;
+    degree: string;
+    experienceYears: number;
+    phone: string;
+    bio: string;
+    consultationFee: number;
+    consultationModes: string[];
+};
+
+type AISettingsData = {
+    isAutoAIReplyEnabled: boolean;
+    aiInstructions: string;
+};
+
 export default function DoctorProfilePage() {
     const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState({
-        speciality: '',
-        registrationNumber: '',
-        degree: '',
-        experienceYears: 0,
-        phone: '',
-        bio: '',
-        consultationFee: 0,
-        consultationModes: [] as string[],
-        isAutoAIReplyEnabled: false,
-        aiInstructions: '',
-    });
+    const [draftFormData, setDraftFormData] = useState<ProfileFormData | null>(null);
+    const [draftAISettings, setDraftAISettings] = useState<AISettingsData | null>(null);
 
     const { data: profile, isLoading } = useQuery({
         queryKey: ['doctorProfile'],
         queryFn: getDoctorProfile,
     });
 
-    // Initialize form data when profile loads
-    useEffect(() => {
-        if (profile) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setFormData({
-                speciality: profile.speciality || '',
-                registrationNumber: profile.registrationNumber || '',
-                degree: profile.degree || '',
-                experienceYears: profile.experienceYears || 0,
-                phone: profile.phone || '',
-                bio: profile.bio || '',
-                consultationFee: profile.consultationFee || 0,
-                consultationModes: profile.consultationModes || [],
-                isAutoAIReplyEnabled: profile.isAutoAIReplyEnabled || false,
-                aiInstructions: profile.aiInstructions || '',
-            });
-        }
-    }, [profile]);
+    const derivedFormData: ProfileFormData = useMemo(() => ({
+        speciality: profile?.speciality || '',
+        registrationNumber: profile?.registrationNumber || '',
+        degree: profile?.degree || '',
+        experienceYears: profile?.experienceYears || 0,
+        phone: profile?.phone || '',
+        bio: profile?.bio || '',
+        consultationFee: profile?.consultationFee || 0,
+        consultationModes: profile?.consultationModes || [],
+    }), [profile]);
+
+    const derivedAISettings: AISettingsData = useMemo(() => ({
+        isAutoAIReplyEnabled: !!profile?.isAutoAIReplyEnabled,
+        aiInstructions: profile?.aiInstructions || '',
+    }), [profile]);
+
+    const formData = isEditing ? (draftFormData ?? derivedFormData) : derivedFormData;
+    const aiSettings = draftAISettings ?? derivedAISettings;
 
     const updateMutation = useMutation({
         mutationFn: updateDoctorProfile,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['doctorProfile'] });
             setIsEditing(false);
+            setDraftFormData(null);
             toast.success('Profile updated successfully');
         },
         onError: (error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -59,33 +66,65 @@ export default function DoctorProfilePage() {
         }
     });
 
+    const updateAIMutation = useMutation({
+        mutationFn: (payload: { isAutoAIReplyEnabled: boolean; aiInstructions: string }) => updateDoctorProfile(payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['doctorProfile'] });
+            setDraftAISettings(null);
+            toast.success('AI settings updated successfully');
+        },
+        onError: (error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            toast.error('Failed to update AI settings: ' + (error.response?.data?.message || error.message));
+        }
+    });
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        if (!isEditing) return;
+
+        if (type === 'checkbox') {
+            const checked = (e.target as HTMLInputElement).checked;
+            // Handle consultation modes
+            setDraftFormData(prev => {
+                const base = prev ?? derivedFormData;
+                const modes = base.consultationModes;
+                if (checked) {
+                    return { ...base, consultationModes: [...modes, value] };
+                } else {
+                    return { ...base, consultationModes: modes.filter(mode => mode !== value) };
+                }
+            });
+        } else if (type === 'number') {
+            setDraftFormData(prev => ({ ...(prev ?? derivedFormData), [name]: Number(value) } as ProfileFormData));
+        } else {
+            setDraftFormData(prev => ({ ...(prev ?? derivedFormData), [name]: value } as ProfileFormData));
+        }
+    };
+
+    const handleAIChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         if (type === 'checkbox') {
             const checked = (e.target as HTMLInputElement).checked;
-            if (name === 'isAutoAIReplyEnabled') {
-                setFormData(prev => ({ ...prev, [name]: checked }));
-            } else {
-                // Handle consultation modes
-                setFormData(prev => {
-                    const modes = prev.consultationModes;
-                    if (checked) {
-                        return { ...prev, consultationModes: [...modes, value] };
-                    } else {
-                        return { ...prev, consultationModes: modes.filter(mode => mode !== value) };
-                    }
-                });
-            }
-        } else if (type === 'number') {
-            setFormData(prev => ({ ...prev, [name]: Number(value) }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
+            setDraftAISettings(prev => ({ ...(prev ?? derivedAISettings), [name]: checked } as AISettingsData));
+            return;
         }
+        setDraftAISettings(prev => ({ ...(prev ?? derivedAISettings), [name]: value } as AISettingsData));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        updateMutation.mutate(formData);
+        if (!draftFormData) {
+            toast.info('No changes to save');
+            return;
+        }
+        updateMutation.mutate(draftFormData);
+    };
+
+    const handleAISubmit = () => {
+        updateAIMutation.mutate({
+            isAutoAIReplyEnabled: !!aiSettings.isAutoAIReplyEnabled,
+            aiInstructions: aiSettings.aiInstructions,
+        });
     };
 
     if (isLoading) return <div className="flex h-full items-center justify-center">Loading...</div>;
@@ -111,7 +150,7 @@ export default function DoctorProfilePage() {
                     <p className="text-gray-600">Manage your professional details and settings</p>
                 </div>
                 {!isEditing && (
-                    <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+                        <Button onClick={() => { setDraftFormData(derivedFormData); setIsEditing(true); }}>Edit Profile</Button>
                 )}
             </div>
 
@@ -263,44 +302,10 @@ export default function DoctorProfilePage() {
                             </div>
                         </div>
 
-                        {/* AI Assistant Settings Section */}
-                        <div className="border-t pt-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Assistant Settings</h3>
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        name="isAutoAIReplyEnabled"
-                                        id="isAutoAIReplyEnabled"
-                                        checked={formData.isAutoAIReplyEnabled}
-                                        onChange={handleChange}
-                                        disabled={!isEditing}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
-                                    />
-                                    <label htmlFor="isAutoAIReplyEnabled" className="text-sm font-medium text-gray-700">
-                                        Enable Auto AI Reply
-                                    </label>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">AI Instructions</label>
-                                    <textarea
-                                        name="aiInstructions"
-                                        rows={3}
-                                        value={formData.aiInstructions}
-                                        onChange={handleChange}
-                                        disabled={!isEditing}
-                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
-                                        placeholder="E.g., Be polite, ask for symptoms, do not prescribe medication..."
-                                    />
-                                    <p className="mt-1 text-xs text-gray-500">Instructions for the AI when replying to patients on your behalf.</p>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Action Buttons */}
                         {isEditing && (
                             <div className="flex justify-end gap-3 pt-4 border-t">
-                                <Button variant="outline" onClick={() => setIsEditing(false)} type="button">
+                                <Button variant="outline" onClick={() => { setIsEditing(false); setDraftFormData(null); }} type="button">
                                     Cancel
                                 </Button>
                                 <Button type="submit" disabled={updateMutation.isPending}>
@@ -309,6 +314,51 @@ export default function DoctorProfilePage() {
                             </div>
                         )}
                     </form>
+                </Card>
+
+                {/* AI Settings (separate save) */}
+                <Card className="lg:col-span-2">
+                    <div className="space-y-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-1">AI Assistant Settings</h3>
+                            <p className="text-sm text-gray-600">Update AI instructions without editing your profile details.</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    name="isAutoAIReplyEnabled"
+                                    id="isAutoAIReplyEnabled"
+                                    checked={aiSettings.isAutoAIReplyEnabled}
+                                    onChange={handleAIChange}
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <label htmlFor="isAutoAIReplyEnabled" className="text-sm font-medium text-gray-700">
+                                    Enable Auto AI Reply (global)
+                                </label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">AI Instructions</label>
+                                <textarea
+                                    name="aiInstructions"
+                                    rows={4}
+                                    value={aiSettings.aiInstructions}
+                                    onChange={handleAIChange}
+                                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2 text-gray-900 focus:border-blue-500 focus:ring-blue-500"
+                                    placeholder="E.g., Be polite, ask for symptoms, avoid diagnosis, suggest booking an appointment..."
+                                />
+                                <p className="mt-1 text-xs text-gray-500">Used when AI replies to patients on your behalf.</p>
+                            </div>
+
+                            <div className="flex justify-end">
+                                <Button onClick={handleAISubmit} disabled={updateAIMutation.isPending} type="button">
+                                    {updateAIMutation.isPending ? 'Saving...' : 'Save AI Settings'}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 </Card>
             </div>
         </div>

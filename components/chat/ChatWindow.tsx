@@ -30,10 +30,11 @@ export default function ChatWindow({
   const [isAIEnabled, setIsAIEnabled] = useState(false); // New state for AI Toggle
   const api = role === "doctor" ? doctorApi : patientApi;
   const bottomRef = useRef<HTMLDivElement>(null);
-  const { userId, onlineUsers, socket } = useSocket();
+  const { userId, onlineUsers, socket, isConversationMuted, toggleConversationMute } = useSocket();
   const { openCall } = useCall();
 
   const isUserOnline = onlineUsers.includes(user._id);
+  const isMuted = isConversationMuted(conversationId);
 
   useEffect(() => {
     if (!conversationId || !socket) return;
@@ -61,11 +62,11 @@ export default function ChatWindow({
         setLoading(false);
       });
 
-    // Check AI Status if current user is doctor
+    // Check per-conversation AI auto-reply status if current user is doctor
     if (role === 'doctor' && userId) {
-      api.get(`/ai/status/${userId}`)
-        .then(res => setIsAIEnabled(res.data.isAIEnabled))
-        .catch(err => console.error("❌ Error fetching AI status:", err));
+      api.get(`/chat/${conversationId}/ai-auto-reply`)
+        .then(res => setIsAIEnabled(!!res.data.effectiveEnabled))
+        .catch(err => console.error("❌ Error fetching conversation AI status:", err));
     }
 
     const handleMessageReceive = (msg: Msg) => {
@@ -121,7 +122,8 @@ export default function ChatWindow({
     try {
       const newState = !isAIEnabled;
       setIsAIEnabled(newState); // Optimistic update
-      await api.patch('/ai/toggle', { doctorId: userId, isAIEnabled: newState });
+      const res = await api.patch(`/chat/${conversationId}/ai-auto-reply`, { enabled: newState });
+      setIsAIEnabled(!!res.data.effectiveEnabled);
     } catch (err) {
       console.error("❌ Error toggling AI:", err);
       setIsAIEnabled(!isAIEnabled); // Revert on error
@@ -196,6 +198,21 @@ export default function ChatWindow({
             </p>
           </div>
         </div>
+
+        {/* Mute notifications for this room */}
+        <button
+          onClick={() => toggleConversationMute(conversationId)}
+          className={clsx(
+            "ml-4 flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border",
+            isMuted
+              ? "bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300"
+              : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100"
+          )}
+          title={isMuted ? "Unmute notifications for this chat" : "Mute notifications for this chat"}
+        >
+          <span className="text-lg">{isMuted ? "🔕" : "🔔"}</span>
+          {isMuted ? "Muted" : "Mute"}
+        </button>
 
         {/* AI Toggle for Doctor */}
         {role === 'doctor' && (
@@ -277,7 +294,7 @@ export default function ChatWindow({
                 {m.isAI && (
                   <p className="text-xs text-purple-600 mb-1">🤖 AI Reply</p>
                 )}
-                <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                <p className="whitespace-pre-wrap wrap-break-word">{m.message}</p>
               </div>
             </div>
           ))

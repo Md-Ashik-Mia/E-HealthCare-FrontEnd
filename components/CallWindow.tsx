@@ -44,6 +44,11 @@ export default function CallWindow() {
   const isRingingRef = useRef<boolean>(false); // Track if ringtone is already playing
   const isAnsweringCallRef = useRef<boolean>(false); // Track if we're answering (not initiating) a call
 
+  // Diagnostics / self-test refs (for machines without camera/mic)
+  const statsIntervalRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const synthCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   // Call controls state
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioDetected, setIsAudioDetected] = useState(false);
@@ -116,6 +121,22 @@ export default function CallWindow() {
   };
 
   const cleanupCallMedia = () => {
+    // Stop diagnostics first
+    if (statsIntervalRef.current) {
+      window.clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
+
+    if (audioCtxRef.current) {
+      try {
+        audioCtxRef.current.close();
+      } catch {
+        // ignore
+      }
+      audioCtxRef.current = null;
+    }
+    synthCanvasRef.current = null;
+
     // Stop any streams we tracked explicitly
     stopMediaStream(localStreamRef.current);
     stopMediaStream(remoteStreamRef.current);
@@ -125,6 +146,191 @@ export default function CallWindow() {
     // Also clear video element streams (covers cases where state hasn't updated yet)
     clearVideoElementStream(localVideoRef.current);
     clearVideoElementStream(remoteVideoRef.current);
+  };
+
+  const startPeerDiagnostics = (peer: RTCPeerConnection) => {
+    try {
+      peer.onconnectionstatechange = () => {
+        console.log("🧪 WebRTC connectionState:", peer.connectionState);
+      };
+      peer.oniceconnectionstatechange = () => {
+        console.log("🧊 WebRTC iceConnectionState:", peer.iceConnectionState);
+      };
+      peer.onicegatheringstatechange = () => {
+        console.log("🧊 WebRTC iceGatheringState:", peer.iceGatheringState);
+      };
+      peer.onsignalingstatechange = () => {
+        console.log("📡 WebRTC signalingState:", peer.signalingState);
+      };
+    } catch {
+      // ignore
+    }
+
+    if (statsIntervalRef.current) return;
+    statsIntervalRef.current = window.setInterval(async () => {
+      try {
+        const report = await peer.getStats();
+
+        let outAudio = 0;
+        let outVideo = 0;
+        let inAudio = 0;
+        let inVideo = 0;
+        let selectedPair: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
+        let selectedPairId: string | null = null;
+
+        report.forEach((stat: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+          if (stat.type === "outbound-rtp" && !stat.isRemote) {
+            if (stat.kind === "audio") outAudio += stat.bytesSent || 0;
+            if (stat.kind === "video") outVideo += stat.bytesSent || 0;
+          }
+          if (stat.type === "inbound-rtp" && !stat.isRemote) {
+            if (stat.kind === "audio") inAudio += stat.bytesReceived || 0;
+            if (stat.kind === "video") inVideo += stat.bytesReceived || 0;
+          }
+          // Chrome/Edge often expose selected pair via transport.selectedCandidatePairId
+          if (stat.type === "transport" && stat.selectedCandidatePairId) {
+            selectedPairId = stat.selectedCandidatePairId;
+          }
+          // Some browsers expose `selected: true` on the candidate pair
+          if (stat.type === "candidate-pair" && stat.selected) {
+            selectedPair = stat;
+          }
+        });
+
+        // Resolve selected pair by id (preferred)
+        if (!selectedPair && selectedPairId) {
+          const statById = report.get(selectedPairId);
+          if (statById && statById.type === "candidate-pair") {
+            selectedPair = statById;
+          }
+        }
+
+        // Fallback: pick a nominated/succeeded pair that looks active
+        if (!selectedPair) {
+          report.forEach((stat: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            if (selectedPair) return;
+            if (stat.type !== "candidate-pair") return;
+            const nominated = !!stat.nominated;
+            const succeeded = stat.state === "succeeded";
+            const hasRtt = typeof stat.currentRoundTripTime === "number";
+            if ((nominated || succeeded) && hasRtt) {
+              selectedPair = stat;
+            }
+          });
+        }
+
+        console.log("📊 WebRTC stats (bytes)", {
+          outbound: { audio: outAudio, video: outVideo },
+          inbound: { audio: inAudio, video: inVideo },
+          selectedCandidatePair: selectedPair
+            ? {
+                state: selectedPair.state,
+                currentRoundTripTime: selectedPair.currentRoundTripTime,
+                availableOutgoingBitrate: selectedPair.availableOutgoingBitrate,
+                localCandidateId: selectedPair.localCandidateId,
+                remoteCandidateId: selectedPair.remoteCandidateId,
+              }
+            : null,
+        });
+      } catch (e) {
+        console.log("📊 WebRTC stats error:", e);
+      }
+    }, 2000);
+  };
+
+  const createSyntheticMediaStream = async (): Promise<MediaStream> => {
+    // Video: canvas capture (no camera required)
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 360;
+    synthCanvasRef.current = canvas;
+    const ctx = canvas.getContext("2d");
+
+    const draw = () => {
+      if (!ctx) return;
+      const now = new Date();
+      ctx.fillStyle = "#111827"; // tailwind gray-900 (not user-facing)
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#10B981"; // green-500
+      ctx.font = "24px sans-serif";
+      ctx.fillText("WebRTC Synthetic Video", 20, 50);
+      ctx.fillStyle = "#93C5FD"; // blue-300
+      ctx.fillText(now.toISOString(), 20, 90);
+      ctx.fillStyle = "#FBBF24"; // amber-400
+      ctx.fillText("(No camera detected / permission denied)", 20, 130);
+    };
+
+    // refresh ~5fps
+    const timer = window.setInterval(draw, 200);
+
+    const videoStream = (canvas as any).captureStream ? (canvas as any).captureStream(5) : null;
+    const videoTrack = videoStream?.getVideoTracks?.()[0] || null;
+
+    // Audio: oscillator (no microphone required)
+    const AudioContextCtor = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
+    let audioTrack: MediaStreamTrack | null = null;
+    if (AudioContextCtor) {
+      const audioCtx = new AudioContextCtor();
+      audioCtxRef.current = audioCtx;
+      try {
+        if (audioCtx.state !== "running") {
+          await audioCtx.resume();
+        }
+      } catch {
+        // ignore
+      }
+
+      const osc = audioCtx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = 440;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.03;
+
+      const dest = audioCtx.createMediaStreamDestination();
+      osc.connect(gain);
+      gain.connect(dest);
+      osc.start();
+
+      audioTrack = dest.stream.getAudioTracks()[0] || null;
+    }
+
+    const stream = new MediaStream();
+    if (videoTrack) stream.addTrack(videoTrack);
+    if (audioTrack) stream.addTrack(audioTrack);
+
+    // Ensure our interval stops when stream tracks stop
+    const origStop = stream.getTracks().map((t) => t.stop.bind(t));
+    stream.getTracks().forEach((t, i) => {
+      t.stop = () => {
+        try {
+          origStop[i]();
+        } finally {
+          window.clearInterval(timer);
+        }
+      };
+    });
+
+    console.log("🧪 Using synthetic media stream", {
+      video: !!videoTrack,
+      audio: !!audioTrack,
+    });
+
+    return stream;
+  };
+
+  const getLocalMediaStream = async (): Promise<MediaStream> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      console.log("🎥✅ getUserMedia ok", {
+        videoTracks: stream.getVideoTracks().length,
+        audioTracks: stream.getAudioTracks().length,
+      });
+      return stream;
+    } catch (e) {
+      console.warn("🎥❌ getUserMedia failed; falling back to synthetic stream", e);
+      return await createSyntheticMediaStream();
+    }
   };
 
   const acceptCall = async () => {
@@ -151,7 +357,14 @@ export default function CallWindow() {
 
     const peer = peerRef.current;
 
+    startPeerDiagnostics(peer);
+
     peer.ontrack = (event) => {
+      console.log("📥 ontrack fired", {
+        streams: event.streams?.length || 0,
+        trackKind: event.track?.kind,
+        trackId: event.track?.id,
+      });
       setRemoteStream(event.streams[0]);
       remoteStreamRef.current = event.streams[0];
       if (remoteVideoRef.current) {
@@ -161,6 +374,7 @@ export default function CallWindow() {
 
     peer.onicecandidate = (event) => {
       if (event.candidate && socket) {
+        console.log("🧊 sending ice candidate to caller", { to: callerId });
         socket.emit("call:ice-candidate", {
           to: callerId,
           candidate: event.candidate,
@@ -170,10 +384,7 @@ export default function CallWindow() {
 
     // Local stream
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
+      const stream = await getLocalMediaStream();
 
       localStreamRef.current = stream;
 
@@ -187,11 +398,17 @@ export default function CallWindow() {
         peer.addTrack(track, stream);
       });
 
+      console.log("📤 Added local tracks", {
+        audio: stream.getAudioTracks().map((t) => ({ id: t.id, enabled: t.enabled })),
+        video: stream.getVideoTracks().map((t) => ({ id: t.id, enabled: t.enabled })),
+      });
+
       await peer.setRemoteDescription(new RTCSessionDescription(pendingOffer));
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
       if (socket) {
+        console.log("📡 sending call:answer", { to: callerId });
         socket.emit("call:answer", {
           to: callerId,
           answer,
@@ -260,10 +477,7 @@ export default function CallWindow() {
    */
   async function startCall() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
+      const stream = await getLocalMediaStream();
 
       localStreamRef.current = stream;
 
@@ -279,9 +493,12 @@ export default function CallWindow() {
 
       peerRef.current = peer;
 
+      startPeerDiagnostics(peer);
+
       // Send local ICE candidates to other user
       peer.onicecandidate = (event) => {
         if (event.candidate && socket) {
+          console.log("🧊 sending ice candidate to remote", { to: remoteUserId });
           socket.emit("call:ice-candidate", {
             to: remoteUserId,
             candidate: event.candidate,
@@ -291,6 +508,11 @@ export default function CallWindow() {
 
       // When remote stream arrives
       peer.ontrack = (event) => {
+        console.log("📥 ontrack fired", {
+          streams: event.streams?.length || 0,
+          trackKind: event.track?.kind,
+          trackId: event.track?.id,
+        });
         setRemoteStream(event.streams[0]);
         remoteStreamRef.current = event.streams[0];
         if (remoteVideoRef.current) {
@@ -303,11 +525,17 @@ export default function CallWindow() {
         peer.addTrack(track, stream);
       });
 
+      console.log("📤 Added local tracks", {
+        audio: stream.getAudioTracks().map((t) => ({ id: t.id, enabled: t.enabled })),
+        video: stream.getVideoTracks().map((t) => ({ id: t.id, enabled: t.enabled })),
+      });
+
       // Offer SDP
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
 
       if (socket) {
+        console.log("📡 sending call:offer", { to: remoteUserId, from: userId });
         socket.emit("call:offer", {
           offer,
           to: remoteUserId,

@@ -86,6 +86,7 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
         }
 
         // Get token (prefer session token; fall back to localStorage)
+        // Token is optional for socket connection (backend currently does not enforce it).
         const token = sessionToken || localStorage.getItem("access_token");
 
         console.log("🔍 SocketContext: Checking connection requirements", {
@@ -93,19 +94,28 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
             userId: sessionUserId,
         });
 
-        if (!token || !sessionUserId) {
+        if (!sessionUserId) {
             return;
         }
 
         // If we already have a socket connected for this user, do nothing
         // This check is implicitly handled by the dependency array now.
 
-        console.log(`🔌 Creating new socket connection to ${BASE_URL}`);
-        const newSocket = io(BASE_URL, {
-            auth: { token },
+        const socketUrl = (() => {
+            try {
+                return new URL(BASE_URL).origin;
+            } catch {
+                return BASE_URL;
+            }
+        })();
+
+        console.log(`🔌 Creating new socket connection to ${socketUrl}`);
+        const newSocket = io(socketUrl, {
+            auth: token ? { token } : undefined,
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
+            transports: ["websocket", "polling"],
         });
 
         newSocket.on("connect", () => {

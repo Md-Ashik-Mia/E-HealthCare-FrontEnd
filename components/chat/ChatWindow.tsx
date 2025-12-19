@@ -19,7 +19,7 @@ export default function ChatWindow({
   conversationId,
   role,
 }: {
-  user: { _id: string; name: string; role?: string };
+  user: { _id?: string; id?: string; name: string; role?: string };
   conversationId: string;
   role: "doctor" | "patient";
 }) {
@@ -33,7 +33,8 @@ export default function ChatWindow({
   const { userId, onlineUsers, socket, isConversationMuted, toggleConversationMute } = useSocket();
   const { openCall } = useCall();
 
-  const isUserOnline = onlineUsers.includes(user._id);
+  const peerUserId = (user._id || user.id || "").toString();
+  const isUserOnline = peerUserId ? onlineUsers.includes(peerUserId) : false;
   const isMuted = isConversationMuted(conversationId);
 
   useEffect(() => {
@@ -107,9 +108,18 @@ export default function ChatWindow({
 
     socket.on("message:receive", handleMessageReceive);
 
+    const handleMessageError = (payload: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      const msg = payload?.error || "Failed to send message.";
+      console.error("❌ Socket message:error:", payload);
+      setError(msg);
+    };
+
+    socket.on("message:error", handleMessageError);
+
     return () => {
       cancelled = true;
       socket.off("message:receive", handleMessageReceive);
+      socket.off("message:error", handleMessageError);
     };
   }, [conversationId, socket, api, userId, role]);
 
@@ -139,7 +149,7 @@ export default function ChatWindow({
     const payload = {
       conversationId,
       from: userId,
-      to: user._id,
+      to: peerUserId,
       message: input,
     };
 
@@ -171,11 +181,11 @@ export default function ChatWindow({
   }
 
   function startAudioCall() {
-    openCall(user._id);
+    if (peerUserId) openCall(peerUserId);
   }
 
   function startVideoCall() {
-    openCall(user._id);
+    if (peerUserId) openCall(peerUserId);
   }
 
   return (

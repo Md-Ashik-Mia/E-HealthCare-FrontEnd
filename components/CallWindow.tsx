@@ -49,9 +49,101 @@ export default function CallWindow() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const synthCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Track inbound audio to confirm audio is actually flowing.
+  const lastInboundAudioBytesRef = useRef<number>(0);
+  const noInboundAudioTicksRef = useRef<number>(0);
+
   // Call controls state
   const [isMuted, setIsMuted] = useState(false);
+  const [isCameraOff, setIsCameraOff] = useState(false);
   const [isAudioDetected, setIsAudioDetected] = useState(false);
+
+  const getIceServers = () => {
+    const servers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+
+    const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
+    const turnUsername = process.env.NEXT_PUBLIC_TURN_USERNAME;
+    const turnCredential = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
+    if (turnUrl && turnUsername && turnCredential) {
+      servers.push({
+        urls: turnUrl,
+        username: turnUsername,
+        credential: turnCredential,
+      });
+    }
+
+    return servers;
+  };
+
+  const attachStreamToVideo = async (video: HTMLVideoElement | null, stream: MediaStream | null) => {
+    if (!video) return;
+    try {
+      if (!stream) {
+        video.srcObject = null;
+        return;
+      }
+      video.srcObject = stream;
+      // Extra safety: ensure play() happens after metadata is available.
+      video.onloadedmetadata = () => {
+        video.play().catch(() => {
+          // ignore; handled by the explicit await below
+        });
+      };
+      // Some browsers require an explicit play() even with autoPlay.
+      await video.play();
+    } catch (e) {
+      console.warn("🔇/📺 video.play() was blocked or failed:", e);
+    }
+  };
+
+  const handleRemoteTrackEvent = async (event: RTCTrackEvent) => {
+    const track = event.track;
+    if (!track) return;
+
+    // Prefer the provided stream when available.
+    const streamFromEvent = event.streams?.[0] || null;
+    let streamToUse = streamFromEvent;
+
+    // Some browsers (notably Safari) may provide an empty streams[]; build our own MediaStream.
+    if (!streamToUse) {
+      if (!remoteStreamRef.current) {
+        remoteStreamRef.current = new MediaStream();
+      }
+      // Avoid duplicates.
+      const existing = remoteStreamRef.current.getTracks().some((t) => t.id === track.id);
+      if (!existing) remoteStreamRef.current.addTrack(track);
+      streamToUse = remoteStreamRef.current;
+    }
+
+    console.log("📥 ontrack fired", {
+      streams: event.streams?.length || 0,
+      trackKind: track.kind,
+      trackId: track.id,
+    });
+
+    setRemoteStream(streamToUse);
+    remoteStreamRef.current = streamToUse;
+    await attachStreamToVideo(remoteVideoRef.current, streamToUse);
+  };
+
+  // ICE candidates can arrive before we have setRemoteDescription (or even before we create the peer).
+  // Queue them and flush once the peer is ready.
+  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+
+  const flushPendingIceCandidates = async (peer: RTCPeerConnection | null) => {
+    if (!peer?.remoteDescription) return;
+    const queued = pendingIceCandidatesRef.current;
+    if (!queued.length) return;
+    pendingIceCandidatesRef.current = [];
+
+    for (const candidateInit of queued) {
+      try {
+        await peer.addIceCandidate(new RTCIceCandidate(candidateInit));
+      } catch (e) {
+        console.error("ICE FAILED (flushing queued candidate):", e);
+      }
+    }
+  };
 
   useEffect(() => {
     ringtoneRef.current = new Audio("/sounds/ringtone.mp3");
@@ -146,6 +238,18 @@ export default function CallWindow() {
     // Also clear video element streams (covers cases where state hasn't updated yet)
     clearVideoElementStream(localVideoRef.current);
     clearVideoElementStream(remoteVideoRef.current);
+
+    // Reset call controls
+    setIsMuted(false);
+    setIsCameraOff(false);
+  };
+
+  const getActiveLocalStream = (): MediaStream | null => {
+    return (
+      localStreamRef.current ||
+      (localVideoRef.current?.srcObject as MediaStream | null) ||
+      null
+    );
   };
 
   const startPeerDiagnostics = (peer: RTCPeerConnection) => {
@@ -232,6 +336,21 @@ export default function CallWindow() {
               }
             : null,
         });
+
+        // Audio activity heuristic: inbound audio bytes increasing.
+        // This avoids false positives from simply having an audio track.
+        const prevInAudio = lastInboundAudioBytesRef.current;
+        if (inAudio > prevInAudio) {
+          lastInboundAudioBytesRef.current = inAudio;
+          noInboundAudioTicksRef.current = 0;
+          if (!isAudioDetected) setIsAudioDetected(true);
+        } else {
+          // Only flip to false after a few intervals to avoid flicker.
+          noInboundAudioTicksRef.current += 1;
+          if (noInboundAudioTicksRef.current >= 3 && isAudioDetected) {
+            setIsAudioDetected(false);
+          }
+        }
       } catch (e) {
         console.log("📊 WebRTC stats error:", e);
       }
@@ -264,11 +383,19 @@ export default function CallWindow() {
     // refresh ~5fps
     const timer = window.setInterval(draw, 200);
 
-    const videoStream = (canvas as any).captureStream ? (canvas as any).captureStream(5) : null;
+    const captureStream = canvas.captureStream?.bind(canvas) as
+      | ((frameRate?: number) => MediaStream)
+      | undefined;
+    const videoStream = captureStream ? captureStream(5) : null;
     const videoTrack = videoStream?.getVideoTracks?.()[0] || null;
 
     // Audio: oscillator (no microphone required)
-    const AudioContextCtor = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
+    const windowWithWebkitAudio = window as Window & {
+      webkitAudioContext?: typeof AudioContext;
+    };
+    const AudioContextCtor = (window.AudioContext || windowWithWebkitAudio.webkitAudioContext) as
+      | typeof AudioContext
+      | undefined;
     let audioTrack: MediaStreamTrack | null = null;
     if (AudioContextCtor) {
       const audioCtx = new AudioContextCtor();
@@ -339,6 +466,12 @@ export default function CallWindow() {
     setCallAvailable(false);
 
     if (!pendingOffer) return;
+    if (!callerId) {
+      console.warn("❌ Cannot accept call: missing callerId");
+      setPendingOffer(null);
+      cleanupCallMedia();
+      return;
+    }
 
     // Mark that we're answering a call, not initiating one
     isAnsweringCallRef.current = true;
@@ -351,7 +484,7 @@ export default function CallWindow() {
     // Initialize WebRTC
     if (!peerRef.current) {
       peerRef.current = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        iceServers: getIceServers(),
       });
     }
 
@@ -359,25 +492,14 @@ export default function CallWindow() {
 
     startPeerDiagnostics(peer);
 
-    peer.ontrack = (event) => {
-      console.log("📥 ontrack fired", {
-        streams: event.streams?.length || 0,
-        trackKind: event.track?.kind,
-        trackId: event.track?.id,
-      });
-      setRemoteStream(event.streams[0]);
-      remoteStreamRef.current = event.streams[0];
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-    };
+    peer.ontrack = handleRemoteTrackEvent;
 
     peer.onicecandidate = (event) => {
       if (event.candidate && socket) {
         console.log("🧊 sending ice candidate to caller", { to: callerId });
         socket.emit("call:ice-candidate", {
           to: callerId,
-          candidate: event.candidate,
+          candidate: event.candidate.toJSON(),
         });
       }
     };
@@ -386,13 +508,16 @@ export default function CallWindow() {
     try {
       const stream = await getLocalMediaStream();
 
+      // Ensure tracks start enabled
+      stream.getAudioTracks().forEach((t) => (t.enabled = true));
+      stream.getVideoTracks().forEach((t) => (t.enabled = true));
+      setIsMuted(false);
+      setIsCameraOff(false);
+
       localStreamRef.current = stream;
 
       setLocalStream(stream);
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      await attachStreamToVideo(localVideoRef.current, stream);
 
       stream.getTracks().forEach((track) => {
         peer.addTrack(track, stream);
@@ -404,6 +529,7 @@ export default function CallWindow() {
       });
 
       await peer.setRemoteDescription(new RTCSessionDescription(pendingOffer));
+      await flushPendingIceCandidates(peer);
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
@@ -434,6 +560,9 @@ export default function CallWindow() {
     setCallerInfo(null);
     setPendingOffer(null);
 
+    // Drop any queued ICE for this call
+    pendingIceCandidatesRef.current = [];
+
     // Defensive: ensure we don't keep any streams
     cleanupCallMedia();
 
@@ -444,15 +573,23 @@ export default function CallWindow() {
   };
 
   const toggleMute = () => {
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const stream = localVideoRef.current.srcObject as MediaStream;
-      const audioTrack = stream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
-        console.log(audioTrack.enabled ? "🎤 Microphone unmuted" : "🔇 Microphone muted");
-      }
-    }
+    const stream = getActiveLocalStream();
+    const audioTrack = stream?.getAudioTracks?.()[0];
+    if (!audioTrack) return;
+
+    audioTrack.enabled = !audioTrack.enabled;
+    setIsMuted(!audioTrack.enabled);
+    console.log(audioTrack.enabled ? "🎤 Microphone unmuted" : "🔇 Microphone muted");
+  };
+
+  const toggleCamera = () => {
+    const stream = getActiveLocalStream();
+    const videoTrack = stream?.getVideoTracks?.()[0];
+    if (!videoTrack) return;
+
+    videoTrack.enabled = !videoTrack.enabled;
+    setIsCameraOff(!videoTrack.enabled);
+    console.log(videoTrack.enabled ? "📷 Camera on" : "📷 Camera off");
   };
 
   const endCall = () => {
@@ -466,6 +603,9 @@ export default function CallWindow() {
     // Release camera/mic immediately
     cleanupCallMedia();
 
+    // Drop any queued ICE for this call
+    pendingIceCandidatesRef.current = [];
+
     // Close the call state
     closeCall();
   };
@@ -477,18 +617,35 @@ export default function CallWindow() {
    */
   async function startCall() {
     try {
+      if (!socket) {
+        console.warn("❌ Cannot start call: socket not connected");
+        return;
+      }
+      if (!userId) {
+        console.warn("❌ Cannot start call: missing userId (session not ready?)");
+        return;
+      }
+      if (!remoteUserId) {
+        console.warn("❌ Cannot start call: missing remoteUserId");
+        return;
+      }
+
       const stream = await getLocalMediaStream();
+
+      // Ensure tracks start enabled
+      stream.getAudioTracks().forEach((t) => (t.enabled = true));
+      stream.getVideoTracks().forEach((t) => (t.enabled = true));
+      setIsMuted(false);
+      setIsCameraOff(false);
 
       localStreamRef.current = stream;
 
       setLocalStream(stream);
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      await attachStreamToVideo(localVideoRef.current, stream);
 
       const peer = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        iceServers: getIceServers(),
       });
 
       peerRef.current = peer;
@@ -501,24 +658,13 @@ export default function CallWindow() {
           console.log("🧊 sending ice candidate to remote", { to: remoteUserId });
           socket.emit("call:ice-candidate", {
             to: remoteUserId,
-            candidate: event.candidate,
+            candidate: event.candidate.toJSON(),
           });
         }
       };
 
       // When remote stream arrives
-      peer.ontrack = (event) => {
-        console.log("📥 ontrack fired", {
-          streams: event.streams?.length || 0,
-          trackKind: event.track?.kind,
-          trackId: event.track?.id,
-        });
-        setRemoteStream(event.streams[0]);
-        remoteStreamRef.current = event.streams[0];
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-        }
-      };
+      peer.ontrack = handleRemoteTrackEvent;
 
       // Add local stream tracks
       stream.getTracks().forEach((track) => {
@@ -569,6 +715,11 @@ export default function CallWindow() {
     socket.on("call:offer", async ({ offer, from }) => {
       console.log("📞 Incoming call from:", from);
 
+      if (!from) {
+        console.warn("⚠️ Ignoring call:offer without a valid 'from' user id");
+        return;
+      }
+
       // Show video icon notification instead of auto-opening
       setCallerInfo({ id: from, name: "User" }); // You can fetch user name from API if needed
       setCallAvailable(true);
@@ -578,22 +729,27 @@ export default function CallWindow() {
     });
 
     socket.on("call:answer", async ({ answer }) => {
-      await peerRef.current?.setRemoteDescription(
-        new RTCSessionDescription(answer)
-      );
+      const peer = peerRef.current;
+      if (!peer) return;
+      await peer.setRemoteDescription(new RTCSessionDescription(answer));
+      await flushPendingIceCandidates(peer);
     });
 
     socket.on("call:ice-candidate", async ({ candidate }) => {
-      try {
-        await peerRef.current?.addIceCandidate(candidate);
-      } catch (e) {
-        console.error("ICE FAILED:", e);
-      }
+      if (!candidate) return;
+
+      // Always queue first; we will flush as soon as the peer has a remote description.
+      pendingIceCandidatesRef.current.push(candidate as RTCIceCandidateInit);
+
+      const peer = peerRef.current;
+      if (!peer?.remoteDescription) return;
+      await flushPendingIceCandidates(peer);
     });
 
     socket.on("call:end", () => {
       console.log("📴 Call ended by remote user");
       cleanupCallMedia();
+      pendingIceCandidatesRef.current = [];
       closeCall();
       stopRingtone();
     });
@@ -650,7 +806,7 @@ export default function CallWindow() {
           exit={{ opacity: 0, y: 50, scale: 0.9 }}
           className="fixed bottom-24 right-4 z-50 bg-white shadow-2xl rounded-2xl border-2 border-blue-500 overflow-hidden w-80"
         >
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white">
+          <div className="bg-linear-to-r from-blue-600 to-indigo-600 p-4 text-white">
             <div className="flex items-center gap-3">
               <motion.div
                 animate={{ scale: [1, 1.2, 1] }}
@@ -705,7 +861,7 @@ export default function CallWindow() {
         className="fixed inset-0 z-50 bg-black flex flex-col"
       >
         {/* Header with controls */}
-        <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/70 to-transparent p-6">
+        <div className="absolute top-0 left-0 right-0 z-20 bg-linear-to-b from-black/70 to-transparent p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
@@ -779,6 +935,12 @@ export default function CallWindow() {
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
+                onClick={() => {
+                  // Helpful when autoplay/audio is blocked until a user gesture.
+                  remoteVideoRef.current?.play().catch(() => {
+                    // ignore
+                  });
+                }}
                 className="w-full h-full object-cover"
               />
             </>
@@ -786,7 +948,7 @@ export default function CallWindow() {
         </div>
 
         {/* Call Controls - Bottom Bar */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/70 to-transparent p-6">
+        <div className="absolute bottom-0 left-0 right-0 z-20 bg-linear-to-t from-black/70 to-transparent p-6">
           <div className="flex items-center justify-center gap-4">
             {/* Mute/Unmute Button */}
             <button
@@ -798,6 +960,18 @@ export default function CallWindow() {
               title={isMuted ? "Unmute Microphone" : "Mute Microphone"}
             >
               <span className="text-2xl">{isMuted ? "🔇" : "🎤"}</span>
+            </button>
+
+            {/* Camera On/Off Button */}
+            <button
+              onClick={toggleCamera}
+              className={`h-14 w-14 rounded-full flex items-center justify-center transition-all ${isCameraOff
+                  ? "bg-red-500 hover:bg-red-600"
+                  : "bg-white/20 hover:bg-white/30"
+                }`}
+              title={isCameraOff ? "Turn Camera On" : "Turn Camera Off"}
+            >
+              <span className="text-2xl">{isCameraOff ? "📷" : "📹"}</span>
             </button>
 
             {/* End Call Button */}
